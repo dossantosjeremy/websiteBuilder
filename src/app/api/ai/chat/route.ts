@@ -97,29 +97,40 @@ export async function POST(request: NextRequest) {
       contextContent = JSON.stringify(selectedComponentJson);
     }
 
+    const isComponentMode = mode === 'component' && selectedComponentJson != null;
+
     const systemPrompt = `You are an expert web designer and developer assistant embedded in a WYSIWYG website builder powered by GrapesJS.
 
 CRITICAL: Your entire response must be a single raw JSON object. No markdown, no code fences, no backticks, no explanation outside JSON. Start your response with { and end with }.
 
-When making changes to the website, respond with exactly this JSON structure:
-{"type":"edit","explanation":"Brief plain-English description","componentsDiff":[...GrapesJS components array...],"stylesDiff":[...GrapesJS CSS rules array...]}
+When making changes, respond with:
+{"type":"edit","explanation":"Brief plain-English description","componentsDiff":[...],"stylesDiff":[...]}
 
 When answering questions only (no changes), respond with:
 {"type":"message","explanation":"Your answer here","componentsDiff":null,"stylesDiff":null}
 
-GrapesJS component format example:
-{"tagName":"div","classes":["hero"],"components":[{"tagName":"h1","type":"text","content":"Hello"}]}
+${isComponentMode ? `
+COMPONENT MODE — CRITICAL SCOPE RULE:
+The user has selected a SPECIFIC component. You must ONLY modify that one component.
+- componentsDiff must contain exactly ONE component object: the updated version of the selected component below.
+- Do NOT return the full page. Do NOT add siblings or wrappers outside the selected component.
+- Only change what the user asked about within that component.
+- Keep all unmentioned parts of the selected component intact.
+Selected component to modify:
+${contextContent}
+` : `
+PAGE MODE:
+You are editing the full page. componentsDiff is the complete new components array for the page.
+${contextContent ? `Current page context:\n${contextContent}` : ''}
+`}
 
 Rules:
 - Output ONLY raw JSON. Never wrap in \`\`\`json or any markdown.
 - explanations must be 1-3 sentences of plain English
-- componentsDiff must be a valid GrapesJS components array (not null) when type is "edit"
-- Use inline styles or class names for styling
-- Current project: ${project.name}
-- Current page: ${pageName}
-- Site type: ${siteType}
-
-${contextContent ? `Current ${mode === 'page' ? 'page' : 'component'} context:\n${contextContent}` : ''}`;
+- componentsDiff must be a valid GrapesJS components array when type is "edit"
+- GrapesJS component format: {"tagName":"div","classes":["hero"],"components":[{"tagName":"h1","type":"text","content":"Hello"}]}
+- Use inline styles or Tailwind-style class names for styling
+- Current project: ${project.name} | Page: ${pageName} | Site type: ${siteType}`;
 
     // Build the user message content — multi-modal when attachments are present
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

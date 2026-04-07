@@ -214,8 +214,20 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
 
         if (type === 'edit' && editor) {
           try {
-            if (componentsDiff) editor.setComponents(componentsDiff);
-            if (stylesDiff) editor.setStyle(stylesDiff);
+            if (mode === 'component' && componentsDiff) {
+              // Component mode: only replace the selected component, not the whole page
+              const selected = editor.getSelected();
+              if (selected) {
+                const patch = Array.isArray(componentsDiff) ? componentsDiff[0] : componentsDiff;
+                selected.replaceWith(patch);
+              } else {
+                editor.setComponents(componentsDiff);
+              }
+            } else {
+              // Page mode: replace the whole page
+              if (componentsDiff) editor.setComponents(componentsDiff);
+              if (stylesDiff) editor.setStyle(stylesDiff);
+            }
             applied = true;
             toast.success('Changes applied to canvas');
           } catch (applyErr) {
