@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { aiChatLimiter } from '@/lib/rate-limit';
 import { db } from '@/lib/db';
 import { projects, projectVersions, aiChatHistory } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getOrCreateDbUser } from '@/lib/auth';
+import { getLocalUser } from '@/lib/auth';
 import { trimToTokenLimit } from '@/lib/token-utils';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText } from 'ai';
@@ -39,13 +38,9 @@ const chatRequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
+    // no auth check needed — local mode
     // Rate limiting: 30 req/min per user
-    const rateCheck = aiChatLimiter(userId);
+    const rateCheck = aiChatLimiter('local');
     if (!rateCheck.success) {
       return NextResponse.json(
         { error: 'Too many AI requests. Please slow down.' },
@@ -72,7 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
     }
 
-    const dbUser = await getOrCreateDbUser(userId);
+    const dbUser = await getLocalUser();
     const [project] = await db
       .select()
       .from(projects)

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { randomUUID } from 'crypto';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
@@ -20,13 +19,9 @@ function getExtension(mimeType: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
+    // no auth check needed — local mode
     // Rate limiting: 10 req/min per user
-    const rateCheck = uploadLimiter(userId);
+    const rateCheck = uploadLimiter('local');
     if (!rateCheck.success) {
       return NextResponse.json(
         { error: 'Too many requests. Please try again later.' },

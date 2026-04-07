@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { slugify, generateId } from '@/lib/utils';
-import { getOrCreateDbUser } from '@/lib/auth';
+import { getLocalUser } from '@/lib/auth';
 import { isValidProjectName, isValidSlug } from '@/lib/sanitize';
 
 const createProjectSchema = z.object({
@@ -15,12 +14,8 @@ const createProjectSchema = z.object({
 
 export async function GET() {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
-    const dbUser = await getOrCreateDbUser(userId);
+    // no auth check needed — local mode
+    const dbUser = await getLocalUser();
     const userProjects = await db
       .select()
       .from(projects)
@@ -36,11 +31,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
+    // no auth check needed — local mode
     const body = await request.json();
     const parsed = createProjectSchema.safeParse(body);
     if (!parsed.success) {
@@ -57,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid slug. Use only lowercase letters, numbers, and hyphens (max 100 chars).' }, { status: 400 });
     }
 
-    const dbUser = await getOrCreateDbUser(userId);
+    const dbUser = await getLocalUser();
 
     // Generate slug from name if not provided
     let slug = providedSlug ? slugify(providedSlug) : slugify(name);

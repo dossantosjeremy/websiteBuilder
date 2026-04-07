@@ -1,9 +1,8 @@
-import { createClient } from '@/lib/supabase/server';
-import { redirect, notFound } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getOrCreateDbUser } from '@/lib/auth';
+import { getLocalUser } from '@/lib/auth';
 import EditorShell from '@/components/editor/EditorShell';
 import '../editor.css';
 
@@ -12,27 +11,17 @@ interface EditorPageProps {
 }
 
 export default async function EditorPage({ params }: EditorPageProps) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/sign-in');
-  }
-
   const projectId = parseInt(params.projectId, 10);
-  if (isNaN(projectId)) {
-    notFound();
-  }
+  if (isNaN(projectId)) notFound();
 
-  const dbUser = await getOrCreateDbUser(user.id, user.email);
+  const localUser = await getLocalUser();
+
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, dbUser.id)));
+    .where(and(eq(projects.id, projectId), eq(projects.userId, localUser.id)));
 
-  if (!project) {
-    notFound();
-  }
+  if (!project) notFound();
 
   return <EditorShell project={project} />;
 }

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { projects, projectVersions, deployments } from '@/lib/db/schema';
 import { deployLimiter } from '@/lib/rate-limit';
 import { eq, and } from 'drizzle-orm';
-import { getOrCreateDbUser } from '@/lib/auth';
+import { getLocalUser } from '@/lib/auth';
 import type { PageData } from '@/components/editor/EditorContext';
 
 function escapeHtml(str: string): string {
@@ -59,13 +58,9 @@ function slugify(name: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
+    // no auth check needed — local mode
     // Rate limiting: 10 req/min per user
-    const rateCheck = deployLimiter(userId);
+    const rateCheck = deployLimiter('local');
     if (!rateCheck.success) {
       return NextResponse.json(
         { error: 'Too many deploy requests. Please try again later.' },
@@ -82,7 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid projectId' }, { status: 400 });
     }
 
-    const dbUser = await getOrCreateDbUser(userId);
+    const dbUser = await getLocalUser();
     const [project] = await db
       .select()
       .from(projects)

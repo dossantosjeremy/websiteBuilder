@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getOrCreateDbUser } from '@/lib/auth';
+import { getLocalUser } from '@/lib/auth';
 import JSZip from 'jszip';
 import type { PageData } from '@/components/editor/EditorContext';
 
@@ -58,18 +57,14 @@ function slugify(name: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
+    // no auth check needed — local mode
     const body = await request.json();
     const projectId = parseInt(body.projectId);
     if (isNaN(projectId)) {
       return NextResponse.json({ error: 'Invalid projectId' }, { status: 400 });
     }
 
-    const dbUser = await getOrCreateDbUser(userId);
+    const dbUser = await getLocalUser();
     const [project] = await db
       .select()
       .from(projects)

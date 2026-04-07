@@ -1,33 +1,29 @@
-import { createClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import type { User } from '@/lib/db/schema';
 
-export async function getCurrentUser(): Promise<{ supabaseUser: any; dbUser: User }> {
-  const supabase = createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+const LOCAL_USER_ID = 'local';
+const LOCAL_USER_EMAIL = 'local@localhost';
 
-  if (error || !user) {
-    throw new Error('Not authenticated');
-  }
-
-  const dbUser = await getOrCreateDbUser(user.id, user.email);
-  return { supabaseUser: user, dbUser };
-}
-
-export async function getOrCreateDbUser(supabaseUserId: string, email?: string): Promise<User> {
-  const [existingUser] = await db
+// Single local user — no Supabase auth required
+export async function getLocalUser(): Promise<User> {
+  const [existing] = await db
     .select()
     .from(users)
-    .where(eq(users.authUserId, supabaseUserId));
+    .where(eq(users.authUserId, LOCAL_USER_ID));
 
-  if (existingUser) return existingUser;
+  if (existing) return existing;
 
-  const [newUser] = await db
+  const [created] = await db
     .insert(users)
-    .values({ authUserId: supabaseUserId, email: email ?? null })
+    .values({ authUserId: LOCAL_USER_ID, email: LOCAL_USER_EMAIL })
     .returning();
 
-  return newUser;
+  return created;
+}
+
+// Keep for any legacy callsites
+export async function getOrCreateDbUser(supabaseUserId: string, email?: string): Promise<User> {
+  return getLocalUser();
 }

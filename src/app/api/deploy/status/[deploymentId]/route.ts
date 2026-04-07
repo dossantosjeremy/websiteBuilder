@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { deploymentId: string } }
 ) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+    // no auth check needed — local mode
     const { deploymentId } = params;
     if (!deploymentId) {
       return NextResponse.json({ error: 'Missing deploymentId' }, { status: 400 });

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { projects, projectVersions } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getOrCreateDbUser } from '@/lib/auth';
+import { getLocalUser } from '@/lib/auth';
 import JSZip from 'jszip';
 import { parse } from 'parse5';
 import type { PageData } from '@/components/editor/EditorContext';
@@ -111,11 +110,7 @@ function fileNameToSlug(filename: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const userId = user.id;
-
+    // no auth check needed — local mode
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const projectIdRaw = formData.get('projectId') as string | null;
@@ -129,7 +124,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid projectId' }, { status: 400 });
     }
 
-    const dbUser = await getOrCreateDbUser(userId);
+    const dbUser = await getLocalUser();
     const [project] = await db
       .select()
       .from(projects)
