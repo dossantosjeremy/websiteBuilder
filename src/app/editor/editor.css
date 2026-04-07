@@ -1,0 +1,5 @@
+/* Studio SDK fills the flex container */
+.gjs-studio-editor {
+  flex: 1;
+  min-width: 0;
+}
