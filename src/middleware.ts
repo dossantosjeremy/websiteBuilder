@@ -2,12 +2,18 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  // If env vars aren't configured yet, allow all requests through
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.next({ request });
+  }
+
+  try {
+    let supabaseResponse = NextResponse.next({ request });
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
@@ -20,26 +26,29 @@ export async function middleware(request: NextRequest) {
           );
         },
       },
+    });
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const pathname = request.nextUrl.pathname;
+    const isPublic =
+      pathname === '/' ||
+      pathname.startsWith('/sign-in') ||
+      pathname.startsWith('/sign-up') ||
+      pathname.startsWith('/api/health') ||
+      pathname.startsWith('/api/webhook') ||
+      pathname.startsWith('/_next') ||
+      pathname.includes('.');
+
+    if (!user && !isPublic) {
+      return NextResponse.redirect(new URL('/sign-in', request.url));
     }
-  );
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  const isPublic =
-    pathname === '/' ||
-    pathname.startsWith('/sign-in') ||
-    pathname.startsWith('/sign-up') ||
-    pathname.startsWith('/api/health') ||
-    pathname.startsWith('/api/webhook') ||
-    pathname.startsWith('/_next') ||
-    pathname.includes('.');
-
-  if (!user && !isPublic) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
+    return supabaseResponse;
+  } catch {
+    // If Supabase fails (e.g. network error), allow request through
+    return NextResponse.next({ request });
   }
-
-  return supabaseResponse;
 }
 
 export const config = {
