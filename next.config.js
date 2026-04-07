@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['sharp', 'jsdom', 'parse5', 'archiver'],
+  // serverComponentsExternalPackages: stable in 14.3+, use experimental key for 14.2.x
+  experimental: {
+    serverComponentsExternalPackages: ['sharp', 'jsdom', 'parse5', 'archiver'],
+  },
   images: { remotePatterns: [{ protocol: 'https', hostname: '**' }] },
   webpack: (config, { isServer }) => {
     if (!isServer) {
