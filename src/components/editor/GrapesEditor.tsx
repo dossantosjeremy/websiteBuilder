@@ -64,11 +64,25 @@ export default function GrapesEditor() {
 
         const gjs = resolve(gjsResult.value);
         const loadedPlugins: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        // Wrap each plugin so a runtime error during init doesn't crash the editor
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const safeWrap = (plugin: any, name: string) => (editor: any, opts: any) => {
+          try { plugin(editor, opts); }
+          catch (e) { console.warn(`Plugin "${name}" failed during init, skipping:`, e); }
+        };
+
+        const pluginNames = [
+          'preset-webpage', 'navbar', 'tabs', 'custom-code', 'touch',
+          'tooltip', 'typed', 'style-gradient', 'style-filter', 'style-bg',
+          'blocks-flexbox', 'plugin-forms', 'component-countdown',
+          'lory-slider', 'plugin-export', 'tui-image-editor',
+        ];
         pluginResults.forEach((r, i) => {
           if (r.status === 'fulfilled') {
-            loadedPlugins.push(resolve(r.value));
+            loadedPlugins.push(safeWrap(resolve(r.value), pluginNames[i] ?? `plugin-${i}`));
           } else {
-            console.warn(`Plugin [${i}] skipped:`, r.reason);
+            console.warn(`Plugin "${pluginNames[i]}" import failed, skipping:`, r.reason);
           }
         });
 
