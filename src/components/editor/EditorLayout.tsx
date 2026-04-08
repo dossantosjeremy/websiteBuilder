@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import AIChatPanel from './AIChatPanel';
 import AIChatToggleButton from './AIChatToggleButton';
+import LeftPanel from './LeftPanel';
+import RightPanel from './RightPanel';
 
-const StudioWrapper = dynamic(() => import('./StudioWrapper'), { ssr: false });
+const GrapesEditor = dynamic(() => import('./GrapesEditor'), { ssr: false });
 const AI_CHAT_STORAGE_KEY = 'ai-chat-panel-open';
 
 export default function EditorLayout() {
@@ -24,8 +26,16 @@ export default function EditorLayout() {
 
   return (
     <div className="flex" style={{ height: 'calc(100vh - 60px)' }}>
-      {/* GrapesJS Studio SDK — includes blocks, layers, styles, traits panels */}
-      <StudioWrapper />
+      {/* Left panel: Blocks + Layers */}
+      <LeftPanel />
+
+      {/* GrapesJS canvas */}
+      <div className="flex-1 min-w-0">
+        <GrapesEditor />
+      </div>
+
+      {/* Right panel: Styles + Traits + SEO */}
+      <RightPanel />
 
       {/* AI Chat */}
       {aiChatOpen ? (

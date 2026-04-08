@@ -123,8 +123,26 @@ Rules:
 - Output ONLY raw JSON. Never wrap in \`\`\`json or any markdown.
 - explanations must be 1-3 sentences of plain English
 - componentsDiff must be a valid GrapesJS components array when type is "edit"
-- GrapesJS component format: {"tagName":"div","classes":["hero"],"components":[{"tagName":"h1","type":"text","content":"Hello"}]}
-- Use inline styles or Tailwind-style class names for styling
+
+GRAPESJS COMPONENT FORMAT — CRITICAL:
+Every element must be a component object with tagName + components[] children. NEVER put HTML strings in "content" for container elements.
+
+CORRECT (nested component tree):
+{"tagName":"section","attributes":{"style":"background:#1a1a1a;padding:80px 20px"},"components":[
+  {"tagName":"h1","type":"text","attributes":{"style":"color:#fff;font-size:48px"},"components":[{"type":"textnode","content":"Welcome"}]},
+  {"tagName":"p","type":"text","attributes":{"style":"color:#ccc"},"components":[{"type":"textnode","content":"Subtitle text here"}]},
+  {"tagName":"a","attributes":{"href":"#","style":"background:#3b82f6;color:#fff;padding:12px 24px;border-radius:6px;display:inline-block"},"components":[{"type":"textnode","content":"Get Started"}]}
+]}
+
+WRONG (never do this — raw HTML in content):
+{"tagName":"div","content":"<h1>Hello</h1><p>World</p>"}
+
+Rules for text:
+- Text nodes: {"type":"textnode","content":"plain text only, no HTML tags"}
+- Inline text elements (span, a, strong, em): use components[] with textnode children
+- Never use "content" with HTML tags — always decompose into nested tagName objects
+
+Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
 - Current project: ${project.name} | Page: ${pageName} | Site type: ${siteType}`;
 
     // Build the user message content — multi-modal when attachments are present
