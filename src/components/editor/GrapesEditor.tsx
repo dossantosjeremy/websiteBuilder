@@ -51,6 +51,9 @@ export default function GrapesEditor() {
           import('grapesjs-blocks-flexbox'),
           import('grapesjs-plugin-forms'),
           import('grapesjs-component-countdown'),
+          import('grapesjs-lory-slider'),
+          import('grapesjs-plugin-export'),
+          import('grapesjs-tui-image-editor'),
         ]);
 
         if (gjsResult.status === 'rejected') {
@@ -94,8 +97,9 @@ export default function GrapesEditor() {
           deviceManager: {
             devices: [
               { name: 'Desktop', width: '' },
-              { name: 'Tablet', width: '768px', widthMedia: '992px' },
-              { name: 'Mobile', width: '320px', widthMedia: '480px' },
+              { name: 'Tablet', width: '768px', widthMedia: '1024px' },
+              { name: 'Mobile landscape', width: '568px', widthMedia: '767px' },
+              { name: 'Mobile portrait', width: '320px', widthMedia: '480px' },
             ],
           },
           assetManager: {
