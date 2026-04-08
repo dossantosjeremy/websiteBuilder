@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:cms": "cd cms && npm run develop",
+    "dev:all": "concurrently -n next,strapi -c cyan,yellow \"next dev\" \"cd cms && npm run develop\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -78,6 +80,7 @@
     "@types/react-dom": "^18",
     "@types/uuid": "^10",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^9.2.1",
     "dotenv-cli": "^11.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",

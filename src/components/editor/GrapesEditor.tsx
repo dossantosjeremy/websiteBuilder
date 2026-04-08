@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useEditorContext, type PageData } from './EditorContext';
 import 'grapesjs/dist/css/grapes.min.css';
 import PagesSidebarPanel from './PagesSidebarPanel';
+import CmsPanel from './CmsPanel';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const resolve = (mod: any) => mod.default ?? mod;
@@ -174,9 +175,14 @@ export default function GrapesEditor() {
           style={{ minHeight: 40 }}
         />
 
-        {/* Pages list — grows as pages are added */}
-        <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '40%', overflowY: 'auto' }}>
+        {/* Pages list */}
+        <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '35%', overflowY: 'auto' }}>
           <PagesSidebarPanel />
+        </div>
+
+        {/* CMS — Strapi content types */}
+        <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '40%', overflowY: 'auto' }}>
+          <CmsPanel />
         </div>
 
         {/* GrapesJS active manager content (style / layers / traits / blocks) */}
