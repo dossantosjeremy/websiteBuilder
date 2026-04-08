@@ -11,11 +11,11 @@ export default function AIChatToggleButton({ onClick }: AIChatToggleButtonProps)
     <button
       onClick={onClick}
       title="Open AI Chat"
-      className="flex flex-col items-center justify-center gap-1 w-8 h-auto py-3 bg-[hsl(0,0%,16%)] border-l border-[hsl(0,0%,22%)] hover:bg-[hsl(0,0%,22%)] transition-colors"
+      className="flex flex-col items-center justify-center gap-1 w-8 h-auto py-3 bg-white border-l border-slate-200 hover:bg-teal-50 transition-colors"
     >
-      <MessageSquare className="w-4 h-4 text-blue-400" />
+      <MessageSquare className="w-4 h-4 text-teal-600" />
       <span
-        className="text-[9px] text-gray-400 font-medium"
+        className="text-[9px] text-slate-500 font-medium"
         style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
       >
         AI Chat

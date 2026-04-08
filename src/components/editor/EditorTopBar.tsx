@@ -54,7 +54,7 @@ export default function EditorTopBar() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <header className="h-[60px] bg-[hsl(0,0%,8%)] border-b border-[hsl(0,0%,18%)] flex items-center px-3 gap-2 shrink-0">
+      <header className="h-[60px] bg-white border-b border-slate-200 flex items-center px-3 gap-2 shrink-0">
         {/* Left section */}
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Tooltip>
@@ -68,7 +68,7 @@ export default function EditorTopBar() {
             <TooltipContent>Back to Dashboard</TooltipContent>
           </Tooltip>
 
-          <div className="w-6 h-6 bg-[hsl(221,83%,53%)] rounded flex items-center justify-center text-white font-bold text-xs shrink-0">
+          <div className="w-6 h-6 bg-teal-600 rounded flex items-center justify-center text-white font-bold text-xs shrink-0">
             W
           </div>
 
@@ -85,12 +85,12 @@ export default function EditorTopBar() {
                   setEditingName(false);
                 }
               }}
-              className="bg-[hsl(0,0%,14%)] border border-[hsl(0,0%,25%)] rounded px-2 py-1 text-sm text-[hsl(0,0%,95%)] outline-none focus:ring-1 focus:ring-[hsl(221,83%,53%)] max-w-[200px]"
+              className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm text-slate-800 outline-none focus:ring-1 focus:ring-teal-500 max-w-[200px]"
               autoFocus
             />
           ) : (
             <span
-              className="text-sm font-medium truncate cursor-pointer hover:text-[hsl(221,83%,65%)] transition-colors max-w-[200px]"
+              className="text-sm font-medium truncate cursor-pointer text-slate-800 hover:text-teal-600 transition-colors max-w-[200px]"
               onClick={() => setEditingName(true)}
               title="Click to rename"
             >
@@ -120,7 +120,7 @@ export default function EditorTopBar() {
           {/* Undo/Redo */}
           <UndoRedoButtons editor={editor} />
 
-          <div className="h-4 w-px bg-[hsl(0,0%,20%)] mx-1" />
+          <div className="h-4 w-px bg-slate-200 mx-1" />
 
           {/* Version History */}
           <Tooltip>
@@ -152,7 +152,7 @@ export default function EditorTopBar() {
             <TooltipContent>Save Version</TooltipContent>
           </Tooltip>
 
-          <div className="h-4 w-px bg-[hsl(0,0%,20%)] mx-1" />
+          <div className="h-4 w-px bg-slate-200 mx-1" />
 
           {/* Export */}
           <ExportButton />
@@ -160,12 +160,12 @@ export default function EditorTopBar() {
           {/* Import */}
           <ImportButton />
 
-          <div className="h-4 w-px bg-[hsl(0,0%,20%)] mx-1" />
+          <div className="h-4 w-px bg-slate-200 mx-1" />
 
           {/* Deploy */}
           <DeployButton />
 
-          <div className="h-4 w-px bg-[hsl(0,0%,20%)] mx-1" />
+          <div className="h-4 w-px bg-slate-200 mx-1" />
 
           {/* Autosave status */}
           <AutosaveIndicator isSaving={isSaving} lastSaved={lastSaved} />

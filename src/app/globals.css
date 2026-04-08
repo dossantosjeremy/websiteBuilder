@@ -2,37 +2,260 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── App theme: white + teal ───────────────────────────────────────── */
 :root {
-  --background: 0 0% 8%;
-  --foreground: 0 0% 95%;
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 95%;
-  --border: 0 0% 18%;
-  --input: 0 0% 15%;
-  --primary: 221 83% 53%;
+  --background:         0 0% 100%;
+  --foreground:         222 47% 11%;
+  --card:               0 0% 100%;
+  --card-foreground:    222 47% 11%;
+  --border:             214 32% 91%;
+  --input:              214 32% 91%;
+  --primary:            174 74% 32%;      /* teal-600 */
   --primary-foreground: 0 0% 100%;
-  --muted: 0 0% 15%;
-  --muted-foreground: 0 0% 55%;
-  --accent: 0 0% 15%;
-  --accent-foreground: 0 0% 95%;
-  --destructive: 0 84% 60%;
-  --ring: 221 83% 53%;
-  --radius: 0.5rem;
+  --muted:              210 40% 96%;
+  --muted-foreground:   215 20% 45%;
+  --accent:             168 84% 95%;      /* teal-50 */
+  --accent-foreground:  174 74% 32%;
+  --destructive:        0 84% 60%;
+  --ring:               174 74% 32%;
+  --radius:             0.5rem;
+
+  /* GrapesJS theme tokens (used in overrides below) */
+  --gjs-teal:           #0d9488;
+  --gjs-teal-light:     #f0fdfa;
+  --gjs-teal-dark:      #0f766e;
+  --gjs-bg:             #ffffff;
+  --gjs-bg-2:           #f8fafc;
+  --gjs-bg-3:           #f1f5f9;
+  --gjs-border:         #e2e8f0;
+  --gjs-text:           #0f172a;
+  --gjs-text-muted:     #64748b;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+a { color: inherit; text-decoration: none; }
+
+/* ─── GrapesJS white + teal theme ───────────────────────────────────── */
+
+/* Utility bg/color classes GrapesJS applies to its own elements */
+.gjs-one-bg   { background-color: var(--gjs-bg-2) !important; }
+.gjs-two-bg   { background-color: var(--gjs-bg-3) !important; }
+.gjs-three-bg { background-color: var(--gjs-bg)   !important; }
+.gjs-four-bg  { background-color: var(--gjs-teal) !important; }
+.gjs-one-color   { color: var(--gjs-text)       !important; }
+.gjs-two-color   { color: var(--gjs-text-muted) !important; }
+.gjs-three-color { color: var(--gjs-text)       !important; }
+.gjs-four-color  { color: #ffffff               !important; }
+
+/* ── Panels ── */
+.gjs-pn-panel {
+  background-color: var(--gjs-bg-2);
+  border-color: var(--gjs-border);
 }
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
+/* Panel buttons (view switcher icons) */
+.gjs-pn-btn {
+  color: var(--gjs-text-muted) !important;
+  background: transparent;
+  border-radius: 6px;
+  margin: 2px;
+  padding: 6px !important;
+  height: 32px !important;
+  width: 32px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.gjs-pn-btn:hover {
+  color: var(--gjs-teal) !important;
+  background-color: var(--gjs-teal-light) !important;
+}
+.gjs-pn-btn.gjs-pn-active {
+  color: var(--gjs-teal) !important;
+  background-color: var(--gjs-teal-light) !important;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* ── Block manager ── */
+.gjs-block-category .gjs-title {
+  background-color: var(--gjs-bg-3);
+  color: var(--gjs-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gjs-border);
+  padding: 6px 10px;
 }
+.gjs-blocks-c {
+  padding: 6px;
+  background-color: var(--gjs-bg-2);
+}
+.gjs-block {
+  background-color: var(--gjs-bg) !important;
+  border: 1px solid var(--gjs-border) !important;
+  border-radius: 6px !important;
+  color: var(--gjs-text) !important;
+  padding: 8px 4px !important;
+  transition: border-color 0.15s, background 0.15s;
+}
+.gjs-block:hover {
+  border-color: var(--gjs-teal) !important;
+  background-color: var(--gjs-teal-light) !important;
+}
+.gjs-block__media svg { fill: var(--gjs-text-muted); }
+.gjs-block:hover .gjs-block__media svg { fill: var(--gjs-teal); }
+.gjs-block-label {
+  color: var(--gjs-text) !important;
+  font-size: 10px !important;
+}
+
+/* ── Style manager ── */
+.gjs-sm-sector-title,
+.gjs-sm-sector .gjs-sm-title {
+  background-color: var(--gjs-bg-3) !important;
+  color: var(--gjs-text-muted) !important;
+  border-bottom: 1px solid var(--gjs-border) !important;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 10px !important;
+}
+.gjs-sm-sector {
+  border-bottom: 1px solid var(--gjs-border);
+  background: var(--gjs-bg);
+}
+.gjs-sm-property {
+  background-color: var(--gjs-bg) !important;
+  border-bottom: 1px solid var(--gjs-border) !important;
+}
+.gjs-sm-label,
+.gjs-sm-property label {
+  color: var(--gjs-text-muted) !important;
+  font-size: 10px !important;
+}
+.gjs-field {
+  background-color: var(--gjs-bg-2) !important;
+  border: 1px solid var(--gjs-border) !important;
+  color: var(--gjs-text) !important;
+  border-radius: 4px;
+}
+.gjs-field input,
+.gjs-field select,
+.gjs-field textarea {
+  background: transparent !important;
+  color: var(--gjs-text) !important;
+}
+.gjs-field:focus-within {
+  border-color: var(--gjs-teal) !important;
+}
+.gjs-select {
+  background-color: var(--gjs-bg-2) !important;
+  color: var(--gjs-text) !important;
+  border-color: var(--gjs-border) !important;
+}
+.gjs-clm-tags-btn {
+  background-color: var(--gjs-teal) !important;
+  border-color: var(--gjs-teal) !important;
+  color: #fff !important;
+}
+
+/* ── Layer manager ── */
+#gjs-layers-container,
+.gjs-layer-manager {
+  background: var(--gjs-bg) !important;
+}
+.gjs-layer {
+  border-bottom: 1px solid var(--gjs-border) !important;
+  background: var(--gjs-bg) !important;
+  color: var(--gjs-text) !important;
+}
+.gjs-layer:hover {
+  background-color: var(--gjs-teal-light) !important;
+}
+.gjs-layer.gjs-selected,
+.gjs-layer.gjs-hovered {
+  background-color: var(--gjs-teal-light) !important;
+  border-left: 2px solid var(--gjs-teal) !important;
+}
+.gjs-layer-title-c { color: var(--gjs-text) !important; }
+.gjs-layer-count {
+  background-color: var(--gjs-teal) !important;
+  color: #fff !important;
+}
+
+/* ── Trait manager ── */
+.gjs-trt-traits { background: var(--gjs-bg) !important; }
+.gjs-trt-trait__label,
+.gjs-trt-trait label {
+  color: var(--gjs-text-muted) !important;
+  font-size: 10px !important;
+}
+.gjs-trt-trait input,
+.gjs-trt-trait select,
+.gjs-trt-trait textarea {
+  background-color: var(--gjs-bg-2) !important;
+  border: 1px solid var(--gjs-border) !important;
+  color: var(--gjs-text) !important;
+  border-radius: 4px;
+}
+.gjs-trt-trait input:focus,
+.gjs-trt-trait select:focus {
+  border-color: var(--gjs-teal) !important;
+  outline: none;
+}
+
+/* ── Canvas ── */
+.gjs-cv-canvas {
+  background-color: #e5e7eb !important;  /* light gray surround outside white page */
+}
+.gjs-frame-wrapper__frame {
+  background: #fff;
+}
+
+/* ── Element toolbar (appears on selected element) ── */
+.gjs-toolbar {
+  background-color: var(--gjs-teal) !important;
+  border-radius: 4px;
+  padding: 2px;
+}
+.gjs-toolbar-item {
+  color: #ffffff !important;
+  border-radius: 3px;
+  padding: 4px !important;
+}
+.gjs-toolbar-item:hover {
+  background-color: var(--gjs-teal-dark) !important;
+}
+
+/* ── Selection / hover highlights ── */
+.gjs-selected  { outline: 2px solid var(--gjs-teal)   !important; }
+.gjs-hovered   { outline: 1px dashed #5eead4           !important; }
+.gjs-badge     { background-color: var(--gjs-teal)     !important; color: #fff !important; }
+.gjs-resizer-h { background-color: var(--gjs-teal)     !important; }
+.gjs-resizer-h:hover { background-color: var(--gjs-teal-dark) !important; }
+
+/* ── Top toolbar (device / undo / redo) rendered by GrapesJS ── */
+.gjs-pn-commands {
+  background-color: var(--gjs-bg) !important;
+  border-bottom: 1px solid var(--gjs-border) !important;
+}
+
+/* ── Scrollbars ── */
+.gjs-blocks-panel::-webkit-scrollbar,
+.gjs-views-container::-webkit-scrollbar { width: 4px; }
+.gjs-blocks-panel::-webkit-scrollbar-track,
+.gjs-views-container::-webkit-scrollbar-track { background: var(--gjs-bg-2); }
+.gjs-blocks-panel::-webkit-scrollbar-thumb,
+.gjs-views-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+/* ── Right-panel views container ── */
+.gjs-views-container { overflow-y: auto; }
+
+/* ── Color picker ── */
+.gjs-field-color-picker { border-color: var(--gjs-border) !important; }
+.sp-container { box-shadow: 0 4px 16px rgba(0,0,0,.12) !important; border-color: var(--gjs-border) !important; }
+.sp-input { background: var(--gjs-bg-2) !important; color: var(--gjs-text) !important; border-color: var(--gjs-border) !important; }
