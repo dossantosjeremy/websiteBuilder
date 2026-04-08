@@ -84,9 +84,8 @@ export default function GrapesEditor() {
               { id: 'views-container', el: '#gjs-views-container' },
             ],
           },
-          // Blocks render into our left sidebar div (GrapesJS native block list)
-          blockManager: { appendTo: '#gjs-blocks-panel' },
-          // No appendTo for these — GrapesJS routes them through views-container natively
+          // No custom appendTo — blocks + style + layers + traits all route through
+          // the native views-container, switched by the panel buttons on the right
           styleManager: {},
           layerManager: {},
           traitManager: {},
@@ -162,13 +161,6 @@ export default function GrapesEditor() {
 
   return (
     <div className="flex flex-1 h-full overflow-hidden">
-      {/* Left sidebar — GrapesJS block manager renders here */}
-      <div
-        id="gjs-blocks-panel"
-        className="gjs-blocks-panel shrink-0 overflow-y-auto border-r border-slate-200 bg-white"
-        style={{ width: 220 }}
-      />
-
       {/* Canvas — GrapesJS renders the editable canvas here */}
       <div
         ref={canvasRef}
@@ -176,18 +168,18 @@ export default function GrapesEditor() {
         className="flex-1 h-full min-w-0"
       />
 
-      {/* Right sidebar — view switcher buttons */}
+      {/* Right sidebar — view switcher icon buttons (preset populates: style, layers, traits, blocks) */}
       <div
         id="gjs-views-buttons"
         className="gjs-views-buttons shrink-0 border-l border-slate-200 bg-slate-50 flex flex-col items-center pt-1"
         style={{ width: 40 }}
       />
 
-      {/* Right sidebar — active manager content (style / layers / traits) */}
+      {/* Right sidebar — active panel content (blocks / style / layers / traits) */}
       <div
         id="gjs-views-container"
         className="gjs-views-container shrink-0 overflow-y-auto border-l border-slate-200 bg-white"
-        style={{ width: 240 }}
+        style={{ width: 260 }}
       />
     </div>
   );

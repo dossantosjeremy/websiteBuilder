@@ -16,8 +16,8 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       <div
         className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
           isUser
-            ? 'bg-blue-600 text-white'
-            : 'bg-[hsl(0,0%,18%)] border border-[hsl(0,0%,25%)] text-gray-100'
+            ? 'bg-teal-600 text-white'
+            : 'bg-white border border-slate-200 text-slate-800 shadow-sm'
         }`}
       >
         {/* Attachment previews */}
@@ -60,7 +60,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           </div>
         )}
       </div>
-      <span className="text-[10px] text-gray-500 mt-1 px-1">{timeAgo}</span>
+      <span className="text-[10px] text-slate-400 mt-1 px-1">{timeAgo}</span>
     </div>
   );
 }
