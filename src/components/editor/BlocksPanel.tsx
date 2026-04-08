@@ -1,27 +1,67 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { useEditorContext } from './EditorContext';
 
+interface BlockItem {
+  id: string;
+  label: string;
+  category: string;
+  content: unknown;
+  media: string;
+}
+
 export default function BlocksPanel() {
-  // BlocksPanel is superseded by Studio SDK's built-in block manager
   const { editor } = useEditorContext();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const blocks: any[] = [];
+  const [blocks, setBlocks] = useState<BlockItem[]>([]);
   const [search, setSearch] = useState('');
-  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set(['Basic', 'Layout', 'Forms', 'Extra']));
+  const [openCategories, setOpenCategories] = useState<Set<string>>(
+    new Set(['Basic', 'Layout', 'Forms', 'Extra'])
+  );
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const loadBlocks = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const all = editor.BlockManager.getAll().map((b: any) => {
+        const cat = b.getCategory?.()?.getId?.() ?? b.get('category') ?? 'Other';
+        return {
+          id: b.getId(),
+          label: b.getLabel?.() ?? b.get('label') ?? b.getId(),
+          category: typeof cat === 'string' ? cat : 'Other',
+          content: b.get('content'),
+          media: b.get('media') ?? '',
+        };
+      });
+      setBlocks(all);
+      // Open all categories found
+      setOpenCategories(new Set(all.map((b: BlockItem) => b.category)));
+    };
+
+    // Blocks may already be registered (editor loaded before this panel mounted)
+    loadBlocks();
+
+    editor.on('block:add', loadBlocks);
+    editor.on('block:remove', loadBlocks);
+
+    return () => {
+      editor.off('block:add', loadBlocks);
+      editor.off('block:remove', loadBlocks);
+    };
+  }, [editor]);
 
   const filtered = useMemo(() => {
     if (!search) return blocks;
-    return blocks.filter(b =>
-      b.label.toLowerCase().includes(search.toLowerCase()) ||
-      b.category.toLowerCase().includes(search.toLowerCase())
+    const q = search.toLowerCase();
+    return blocks.filter(
+      b => b.label.toLowerCase().includes(q) || b.category.toLowerCase().includes(q)
     );
   }, [blocks, search]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof blocks>();
+    const map = new Map<string, BlockItem[]>();
     filtered.forEach(block => {
       const cat = block.category || 'Other';
       if (!map.has(cat)) map.set(cat, []);
@@ -30,7 +70,7 @@ export default function BlocksPanel() {
     return map;
   }, [filtered]);
 
-  const addBlock = (block: (typeof blocks)[0]) => {
+  const addBlock = (block: BlockItem) => {
     if (!editor) return;
     try {
       const selected = editor.getSelected();
@@ -81,7 +121,6 @@ export default function BlocksPanel() {
       <div className="flex-1 overflow-y-auto">
         {Array.from(grouped.entries()).map(([category, catBlocks]) => (
           <div key={category}>
-            {/* Category header */}
             <button
               onClick={() => toggleCategory(category)}
               className="w-full flex items-center justify-between px-3 py-2 bg-[#141414] border-b border-[#222] text-[10px] font-semibold text-gray-400 uppercase tracking-wider hover:bg-[#1a1a1a] transition-colors"
@@ -90,7 +129,6 @@ export default function BlocksPanel() {
               <span className="text-gray-600">{openCategories.has(category) ? '▲' : '▼'}</span>
             </button>
 
-            {/* Blocks grid */}
             {openCategories.has(category) && (
               <div className="grid grid-cols-2 gap-1.5 p-2 bg-[#1a1a1a]">
                 {catBlocks.map(block => (
