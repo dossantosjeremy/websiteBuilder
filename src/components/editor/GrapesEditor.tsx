@@ -161,25 +161,29 @@ export default function GrapesEditor() {
 
   return (
     <div className="flex flex-1 h-full overflow-hidden">
-      {/* Canvas — GrapesJS renders the editable canvas here */}
+      {/* Left panel: icon tabs on top, active manager content below */}
+      <div
+        className="shrink-0 flex flex-col border-r border-slate-200 bg-white"
+        style={{ width: 260 }}
+      >
+        {/* Icon strip — GrapesJS preset populates: style, layers, traits, blocks */}
+        <div
+          id="gjs-views-buttons"
+          className="shrink-0 flex flex-row border-b border-slate-200 bg-slate-50"
+          style={{ minHeight: 40 }}
+        />
+        {/* Active manager content */}
+        <div
+          id="gjs-views-container"
+          className="flex-1 overflow-y-auto"
+        />
+      </div>
+
+      {/* Canvas */}
       <div
         ref={canvasRef}
         id="gjs"
         className="flex-1 h-full min-w-0"
-      />
-
-      {/* Right sidebar — view switcher icon buttons (preset populates: style, layers, traits, blocks) */}
-      <div
-        id="gjs-views-buttons"
-        className="gjs-views-buttons shrink-0 border-l border-slate-200 bg-slate-50 flex flex-col items-center pt-1"
-        style={{ width: 40 }}
-      />
-
-      {/* Right sidebar — active panel content (blocks / style / layers / traits) */}
-      <div
-        id="gjs-views-container"
-        className="gjs-views-container shrink-0 overflow-y-auto border-l border-slate-200 bg-white"
-        style={{ width: 260 }}
       />
     </div>
   );

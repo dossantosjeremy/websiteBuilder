@@ -56,18 +56,20 @@ a { color: inherit; text-decoration: none; }
   border-color: var(--gjs-border);
 }
 
-/* Panel buttons (view switcher icons) */
+/* Panel buttons (view switcher icons — now horizontal across the top of the left panel) */
 .gjs-pn-btn {
   color: var(--gjs-text-muted) !important;
   background: transparent;
-  border-radius: 6px;
-  margin: 2px;
-  padding: 6px !important;
-  height: 32px !important;
-  width: 32px !important;
-  display: flex !important;
+  border-radius: 0;
+  margin: 0;
+  padding: 0 !important;
+  height: 40px !important;
+  width: 40px !important;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  border-right: 1px solid var(--gjs-border);
+  flex-shrink: 0;
 }
 .gjs-pn-btn:hover {
   color: var(--gjs-teal) !important;
@@ -76,7 +78,10 @@ a { color: inherit; text-decoration: none; }
 .gjs-pn-btn.gjs-pn-active {
   color: var(--gjs-teal) !important;
   background-color: var(--gjs-teal-light) !important;
+  border-bottom: 2px solid var(--gjs-teal) !important;
 }
+/* Force the views panel to lay out buttons in a row */
+#gjs-views-buttons { display: flex !important; flex-direction: row !important; }
 
 /* ── Block manager ── */
 .gjs-block-category .gjs-title {
