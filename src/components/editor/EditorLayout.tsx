@@ -30,7 +30,7 @@ export default function EditorLayout() {
       <LeftPanel />
 
       {/* GrapesJS canvas */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 h-full">
         <GrapesEditor />
       </div>
 

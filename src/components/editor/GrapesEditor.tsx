@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useEditorContext, type PageData } from './EditorContext';
 import 'grapesjs/dist/css/grapes.min.css';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const resolve = (mod: any) => mod.default ?? mod;
 
 export default function GrapesEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -12,6 +15,7 @@ export default function GrapesEditor() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pagesRef = useRef<PageData[]>(pages);
   const currentPageIndexRef = useRef<number>(currentPageIndex);
+  const [initError, setInitError] = useState<string | null>(null);
   pagesRef.current = pages;
   currentPageIndexRef.current = currentPageIndex;
 
@@ -30,24 +34,8 @@ export default function GrapesEditor() {
 
     const init = async () => {
       try {
-        const [
-          gjs,
-          presetWebpage,
-          gjsNavbar,
-          gjsTabs,
-          gjsCustomCode,
-          gjsTouch,
-          gjsTooltip,
-          gjsTuiImageEditor,
-          gjsTyped,
-          gjsLorySlider,
-          gjsStyleGradient,
-          gjsStyleFilter,
-          gjsStyleBg,
-          gjsBlocksFlexbox,
-          gjsPluginForms,
-          gjsComponentCountdown,
-        ] = await Promise.all([
+        // Load core + plugins — use allSettled so one bad plugin doesn't kill everything
+        const [gjsResult, ...pluginResults] = await Promise.allSettled([
           import('grapesjs'),
           import('grapesjs-preset-webpage'),
           import('grapesjs-navbar'),
@@ -55,9 +43,7 @@ export default function GrapesEditor() {
           import('grapesjs-custom-code'),
           import('grapesjs-touch'),
           import('grapesjs-tooltip'),
-          import('grapesjs-tui-image-editor'),
           import('grapesjs-typed'),
-          import('grapesjs-lory-slider'),
           import('grapesjs-style-gradient'),
           import('grapesjs-style-filter'),
           import('grapesjs-style-bg'),
@@ -66,21 +52,38 @@ export default function GrapesEditor() {
           import('grapesjs-component-countdown'),
         ]);
 
+        if (gjsResult.status === 'rejected') {
+          throw new Error(`Failed to load GrapesJS core: ${gjsResult.reason}`);
+        }
+
         if (!mounted || !containerRef.current) return;
 
+        const gjs = resolve(gjsResult.value);
         const initialData = getInitialData();
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const resolvePlugin = (mod: any) => mod.default ?? mod;
+        // Collect successfully loaded plugins
+        const loadedPlugins: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+        pluginResults.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            loadedPlugins.push(resolve(result.value));
+          } else {
+            console.warn(`GrapesJS plugin [${i}] failed to load:`, result.reason);
+          }
+        });
 
-        const editor = resolvePlugin(gjs).init({
+        const [
+          presetWebpage,,,,,,,,
+          gjsBlocksFlexbox,,,
+        ] = loadedPlugins;
+
+        const editor = gjs.init({
           container: containerRef.current,
-          height: 'calc(100vh - 60px)',
+          height: '100%',
           width: '100%',
           storageManager: false,
           undoManager: { trackChanges: true },
-          panels: { defaults: [] },  // We build our own panels in React
-          blockManager: { appendTo: false },  // We render blocks in React ourselves
+          panels: { defaults: [] },
+          blockManager: { appendTo: false },
           styleManager: { appendTo: '#gjs-styles-container' },
           layerManager: { appendTo: '#gjs-layers-container' },
           traitManager: { appendTo: '#gjs-traits-container' },
@@ -97,46 +100,28 @@ export default function GrapesEditor() {
             assets: [],
             multiUpload: true,
           },
-          plugins: [
-            resolvePlugin(presetWebpage),
-            resolvePlugin(gjsNavbar),
-            resolvePlugin(gjsTabs),
-            resolvePlugin(gjsCustomCode),
-            resolvePlugin(gjsTouch),
-            resolvePlugin(gjsTooltip),
-            resolvePlugin(gjsTuiImageEditor),
-            resolvePlugin(gjsTyped),
-            resolvePlugin(gjsLorySlider),
-            resolvePlugin(gjsStyleGradient),
-            resolvePlugin(gjsStyleFilter),
-            resolvePlugin(gjsStyleBg),
-            resolvePlugin(gjsBlocksFlexbox),
-            resolvePlugin(gjsPluginForms),
-            resolvePlugin(gjsComponentCountdown),
-          ],
+          plugins: loadedPlugins,
           pluginsOpts: {
-            [resolvePlugin(presetWebpage)]: {},
-            [resolvePlugin(gjsBlocksFlexbox)]: { flexboxBlock: true },
+            ...(presetWebpage ? { [presetWebpage]: {} } : {}),
+            ...(gjsBlocksFlexbox ? { [gjsBlocksFlexbox]: { flexboxBlock: true } } : {}),
           },
         });
 
         // Load initial page data
-        if ((initialData.components as any[])?.length > 0) { // eslint-disable-line @typescript-eslint/no-explicit-any
-          editor.setComponents(initialData.components);
-        }
-        if ((initialData.styles as any[])?.length > 0) { // eslint-disable-line @typescript-eslint/no-explicit-any
-          editor.setStyle(initialData.styles);
-        }
+        const comps = initialData.components as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const styles = initialData.styles as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (comps?.length > 0) editor.setComponents(comps);
+        if (styles?.length > 0) editor.setStyle(styles);
 
         // Debounced change → save to context
         const onEditorChange = () => {
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {
             const components = editor.getComponents().toJSON();
-            const styles = editor.getStyle().toJSON();
+            const editorStyles = editor.getStyle().toJSON();
             const latestPages = pagesRef.current;
             const latestIdx = currentPageIndexRef.current;
-            setPages(latestPages.map((p, i) => i === latestIdx ? { ...p, components, styles } : p));
+            setPages(latestPages.map((p, i) => i === latestIdx ? { ...p, components, styles: editorStyles } : p));
           }, 500);
         };
 
@@ -147,10 +132,9 @@ export default function GrapesEditor() {
 
         editorInstanceRef.current = editor;
         setEditor(editor);
-
-        // (Studio SDK handles block management natively)
       } catch (err) {
         console.error('GrapesJS init error:', err);
+        if (mounted) setInitError(String(err));
       }
     };
 
@@ -165,11 +149,22 @@ export default function GrapesEditor() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (initError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-red-400 text-xs p-8 gap-2">
+        <p className="font-semibold">Editor failed to initialise</p>
+        <pre className="bg-[#1a0000] border border-red-900 rounded p-3 max-w-full overflow-auto whitespace-pre-wrap text-red-300">
+          {initError}
+        </pre>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
       id="gjs"
-      style={{ height: 'calc(100vh - 60px)', width: '100%' }}
+      style={{ height: '100%', width: '100%' }}
     />
   );
 }
