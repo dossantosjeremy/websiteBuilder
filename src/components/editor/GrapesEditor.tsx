@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useEditorContext, type PageData } from './EditorContext';
 import 'grapesjs/dist/css/grapes.min.css';
+import PagesSidebarPanel from './PagesSidebarPanel';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const resolve = (mod: any) => mod.default ?? mod;
@@ -161,21 +162,27 @@ export default function GrapesEditor() {
 
   return (
     <div className="flex flex-1 h-full overflow-hidden">
-      {/* Left panel: icon tabs on top, active manager content below */}
+      {/* Left panel */}
       <div
         className="shrink-0 flex flex-col border-r border-slate-200 bg-white"
         style={{ width: 260 }}
       >
-        {/* Icon strip — GrapesJS preset populates: style, layers, traits, blocks */}
+        {/* GrapesJS icon strip — style / layers / traits / blocks buttons */}
         <div
           id="gjs-views-buttons"
           className="shrink-0 flex flex-row border-b border-slate-200 bg-slate-50"
           style={{ minHeight: 40 }}
         />
-        {/* Active manager content */}
+
+        {/* Pages list — grows as pages are added */}
+        <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '40%', overflowY: 'auto' }}>
+          <PagesSidebarPanel />
+        </div>
+
+        {/* GrapesJS active manager content (style / layers / traits / blocks) */}
         <div
           id="gjs-views-container"
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto min-h-0"
         />
       </div>
 
