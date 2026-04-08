@@ -51,6 +51,24 @@ export const aiChatHistory = pgTable('ai_chat_history', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ── CMS ───────────────────────────────────────────────────────────────────────
+export const cmsContentTypes = pgTable('cms_content_types', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').unique().notNull(),
+  fields: jsonb('fields').notNull().default([]),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const cmsEntries = pgTable('cms_entries', {
+  id: serial('id').primaryKey(),
+  typeId: integer('type_id').references(() => cmsContentTypes.id, { onDelete: 'cascade' }),
+  data: jsonb('data').notNull().default({}),
+  publishedAt: timestamp('published_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 // Types
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;

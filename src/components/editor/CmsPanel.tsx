@@ -2,274 +2,469 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Database, RefreshCw, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronRight, ExternalLink, Plus,
+  Database, Plus, Trash2, ChevronDown, ChevronRight,
+  Pencil, Check, X, RefreshCw, Layout,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  pingStrapi, getContentTypes, getEntries,
-  buildCollectionBlockHtml, entryTitle, entryExcerpt,
-} from '@/lib/strapi';
-import type { StrapiContentType, StrapiEntry } from '@/lib/strapi';
+import { buildCmsBlockHtml, entryTitle } from '@/lib/cms';
+import type { CmsContentType, CmsEntry, CmsField, CmsFieldType } from '@/lib/cms';
 import { useEditorContext } from './EditorContext';
 
-type Status = 'checking' | 'connected' | 'disconnected';
+// ── API helpers ───────────────────────────────────────────────────────────────
+const api = {
+  setup: () => fetch('/api/cms/setup', { method: 'POST' }),
+  types: {
+    list: () => fetch('/api/cms/types').then((r) => r.json()) as Promise<CmsContentType[]>,
+    create: (name: string, fields: CmsField[]) =>
+      fetch('/api/cms/types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, fields }),
+      }).then((r) => r.json()) as Promise<CmsContentType>,
+    delete: (id: number) => fetch(`/api/cms/types/${id}`, { method: 'DELETE' }),
+  },
+  entries: {
+    list: (typeId: number) =>
+      fetch(`/api/cms/types/${typeId}/entries`).then((r) => r.json()) as Promise<CmsEntry[]>,
+    create: (typeId: number, data: Record<string, unknown>) =>
+      fetch(`/api/cms/types/${typeId}/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data }),
+      }).then((r) => r.json()) as Promise<CmsEntry>,
+    update: (typeId: number, entryId: number, data: Record<string, unknown>) =>
+      fetch(`/api/cms/types/${typeId}/entries/${entryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data }),
+      }).then((r) => r.json()) as Promise<CmsEntry>,
+    delete: (typeId: number, entryId: number) =>
+      fetch(`/api/cms/types/${typeId}/entries/${entryId}`, { method: 'DELETE' }),
+  },
+};
 
+// ── Field type options ────────────────────────────────────────────────────────
+const FIELD_TYPES: { value: CmsFieldType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'textarea', label: 'Long text' },
+  { value: 'number', label: 'Number' },
+  { value: 'url', label: 'URL / Image' },
+  { value: 'boolean', label: 'Yes / No' },
+];
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function FieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: CmsField;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const base = 'w-full text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white';
+  if (field.type === 'boolean') {
+    return (
+      <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => onChange(e.target.checked)}
+          className="accent-teal-600"
+        />
+        {field.name}
+      </label>
+    );
+  }
+  if (field.type === 'textarea') {
+    return (
+      <textarea
+        rows={2}
+        value={String(value ?? '')}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.name}
+        className={cn(base, 'resize-none')}
+      />
+    );
+  }
+  return (
+    <input
+      type={field.type === 'number' ? 'number' : 'text'}
+      value={String(value ?? '')}
+      onChange={(e) => onChange(field.type === 'number' ? Number(e.target.value) : e.target.value)}
+      placeholder={field.name}
+      className={base}
+    />
+  );
+}
+
+function EntryForm({
+  fields,
+  initial,
+  onSave,
+  onCancel,
+}: {
+  fields: CmsField[];
+  initial?: Record<string, unknown>;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [data, setData] = useState<Record<string, unknown>>(initial ?? {});
+  const [saving, setSaving] = useState(false);
+
+  const set = (name: string, value: unknown) =>
+    setData((prev) => ({ ...prev, [name]: value }));
+
+  const submit = async () => {
+    setSaving(true);
+    try { await onSave(data); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="p-2 space-y-1.5 bg-slate-50 border-t border-slate-200">
+      {fields.length === 0 ? (
+        <p className="text-[10px] text-slate-400 text-center py-2">No fields defined for this type.</p>
+      ) : (
+        fields.map((f) => (
+          <div key={f.name}>
+            {f.type !== 'boolean' && (
+              <label className="block text-[10px] text-slate-500 mb-0.5 capitalize">{f.name}</label>
+            )}
+            <FieldInput field={f} value={data[f.name]} onChange={(v) => set(f.name, v)} />
+          </div>
+        ))
+      )}
+      <div className="flex gap-1.5 pt-1">
+        <button
+          onClick={submit}
+          disabled={saving}
+          className="flex-1 flex items-center justify-center gap-1 text-[11px] bg-teal-600 hover:bg-teal-700 text-white rounded py-1 disabled:opacity-50"
+        >
+          {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+          Save
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-3 text-[11px] border border-slate-200 rounded py-1 hover:bg-slate-100 text-slate-600"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NewTypeForm({ onSave, onCancel }: { onSave: (name: string, fields: CmsField[]) => Promise<void>; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [fields, setFields] = useState<CmsField[]>([{ name: 'title', type: 'text' }]);
+  const [saving, setSaving] = useState(false);
+
+  const addField = () => setFields((f) => [...f, { name: '', type: 'text' }]);
+  const removeField = (i: number) => setFields((f) => f.filter((_, idx) => idx !== i));
+  const setFieldProp = (i: number, key: keyof CmsField, val: string) =>
+    setFields((f) => f.map((field, idx) => idx === i ? { ...field, [key]: val } : field));
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try { await onSave(name.trim(), fields.filter((f) => f.name.trim())); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="p-3 space-y-2 border-b border-slate-200 bg-slate-50">
+      <p className="text-[11px] font-semibold text-slate-700">New Content Type</p>
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. Blog Posts"
+        className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+      />
+
+      <p className="text-[10px] text-slate-500 font-medium">Fields</p>
+      <div className="space-y-1">
+        {fields.map((f, i) => (
+          <div key={i} className="flex gap-1">
+            <input
+              value={f.name}
+              onChange={(e) => setFieldProp(i, 'name', e.target.value)}
+              placeholder="field name"
+              className="flex-1 text-[11px] border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+            />
+            <select
+              value={f.type}
+              onChange={(e) => setFieldProp(i, 'type', e.target.value)}
+              className="text-[11px] border border-slate-200 rounded px-1 py-1 bg-white focus:outline-none"
+            >
+              {FIELD_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <button onClick={() => removeField(i)} className="text-slate-300 hover:text-red-400">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <button onClick={addField} className="text-[10px] text-teal-600 hover:text-teal-700 flex items-center gap-0.5">
+        <Plus className="w-3 h-3" /> Add field
+      </button>
+
+      <div className="flex gap-1.5 pt-1">
+        <button
+          onClick={submit}
+          disabled={saving || !name.trim()}
+          className="flex-1 flex items-center justify-center gap-1 text-[11px] bg-teal-600 hover:bg-teal-700 text-white rounded py-1 disabled:opacity-50"
+        >
+          {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+          Create
+        </button>
+        <button onClick={onCancel} className="px-3 text-[11px] border border-slate-200 rounded py-1 hover:bg-slate-100 text-slate-600">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main panel ────────────────────────────────────────────────────────────────
 export default function CmsPanel() {
   const { editor } = useEditorContext();
-  const [status, setStatus] = useState<Status>('checking');
-  const [types, setTypes] = useState<StrapiContentType[]>([]);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [previews, setPreviews] = useState<Record<string, StrapiEntry[]>>({});
+  const [ready, setReady] = useState(false);
+  const [types, setTypes] = useState<CmsContentType[]>([]);
+  const [entries, setEntries] = useState<Record<number, CmsEntry[]>>({});
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [showNewType, setShowNewType] = useState(false);
+  const [addingEntry, setAddingEntry] = useState<number | null>(null);
+  const [editingEntry, setEditingEntry] = useState<{ typeId: number; entry: CmsEntry } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ── Connection check ──────────────────────────────────────────────────────
-  const refresh = useCallback(async () => {
-    setStatus('checking');
+  const loadTypes = useCallback(async () => {
     setLoading(true);
     try {
-      const alive = await pingStrapi();
-      if (!alive) { setStatus('disconnected'); return; }
-      setStatus('connected');
-      const fetched = await getContentTypes();
-      setTypes(fetched);
-    } catch {
-      setStatus('disconnected');
+      const list = await api.types.list();
+      setTypes(list);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // ── Register GrapesJS block for a content type ────────────────────────────
-  const registerBlock = useCallback(
-    (type: StrapiContentType, entries: StrapiEntry[]) => {
-      if (!editor) return;
-      const blockId = `strapi--${type.uid}`;
-      if (editor.BlockManager.get(blockId)) return; // already registered
-
-      editor.BlockManager.add(blockId, {
-        label: type.displayName,
-        category: 'CMS',
-        media: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <path d="M3 9h18M9 21V9"/>
-        </svg>`,
-        content: buildCollectionBlockHtml(type, entries),
-      });
-    },
-    [editor]
-  );
-
-  // Register block whenever we fetch entries for a type
+  // Ensure CMS tables exist on mount, then load
   useEffect(() => {
-    types.forEach((t) => {
-      const entries = previews[t.uid];
-      if (entries) registerBlock(t, entries);
-    });
-  }, [types, previews, registerBlock]);
+    api.setup().then(() => { setReady(true); loadTypes(); });
+  }, [loadTypes]);
 
-  // ── Expand a type row → fetch preview entries ─────────────────────────────
-  const toggle = async (type: StrapiContentType) => {
-    if (expanded === type.uid) { setExpanded(null); return; }
-    setExpanded(type.uid);
-    if (!previews[type.uid]) {
-      try {
-        const entries = await getEntries(type.pluralName, 3);
-        setPreviews((prev) => ({ ...prev, [type.uid]: entries }));
-      } catch {
-        setPreviews((prev) => ({ ...prev, [type.uid]: [] }));
-      }
-    }
+  const loadEntries = async (typeId: number) => {
+    const list = await api.entries.list(typeId);
+    setEntries((prev) => ({ ...prev, [typeId]: list }));
   };
 
-  // ── Add block to canvas on click ─────────────────────────────────────────
-  const addToCanvas = (type: StrapiContentType) => {
+  const toggleExpand = async (typeId: number) => {
+    if (expanded === typeId) { setExpanded(null); return; }
+    setExpanded(typeId);
+    if (!entries[typeId]) await loadEntries(typeId);
+  };
+
+  const createType = async (name: string, fields: CmsField[]) => {
+    await api.types.create(name, fields);
+    setShowNewType(false);
+    await loadTypes();
+  };
+
+  const deleteType = async (id: number) => {
+    if (!confirm('Delete this content type and all its entries?')) return;
+    await api.types.delete(id);
+    setTypes((prev) => prev.filter((t) => t.id !== id));
+    if (expanded === id) setExpanded(null);
+  };
+
+  const createEntry = async (typeId: number, data: Record<string, unknown>) => {
+    await api.entries.create(typeId, data);
+    setAddingEntry(null);
+    await loadEntries(typeId);
+    setTypes((prev) => prev.map((t) => t.id === typeId ? { ...t, entryCount: t.entryCount + 1 } : t));
+  };
+
+  const updateEntry = async (typeId: number, entryId: number, data: Record<string, unknown>) => {
+    await api.entries.update(typeId, entryId, data);
+    setEditingEntry(null);
+    await loadEntries(typeId);
+  };
+
+  const deleteEntry = async (typeId: number, entryId: number) => {
+    if (!confirm('Delete this entry?')) return;
+    await api.entries.delete(typeId, entryId);
+    setEntries((prev) => ({ ...prev, [typeId]: (prev[typeId] ?? []).filter((e) => e.id !== entryId) }));
+    setTypes((prev) => prev.map((t) => t.id === typeId ? { ...t, entryCount: Math.max(0, t.entryCount - 1) } : t));
+  };
+
+  const addToCanvas = (type: CmsContentType) => {
     if (!editor) return;
-    const entries = previews[type.uid] ?? [];
-    registerBlock(type, entries);
-    const blockId = `strapi--${type.uid}`;
-    const block = editor.BlockManager.get(blockId);
-    if (block) editor.addComponents(block.get('content'));
+    const typeEntries = entries[type.id] ?? [];
+    const blockId = `cms--${type.slug}`;
+    if (!editor.BlockManager.get(blockId)) {
+      editor.BlockManager.add(blockId, {
+        label: type.name,
+        category: 'CMS',
+        media: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+        content: buildCmsBlockHtml(type, typeEntries),
+      });
+    }
+    editor.addComponents(editor.BlockManager.get(blockId)!.get('content'));
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <div className="flex flex-col h-full bg-white text-slate-800">
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center py-4 text-[11px] text-slate-400 gap-1.5">
+        <RefreshCw className="w-3 h-3 animate-spin" /> Setting up CMS…
+      </div>
+    );
+  }
 
-      {/* Status bar */}
+  return (
+    <div className="flex flex-col bg-white text-slate-800">
+      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 bg-slate-50 shrink-0">
         <div className="flex items-center gap-1.5">
-          {status === 'checking' && <RefreshCw className="w-3.5 h-3.5 text-amber-500 animate-spin" />}
-          {status === 'connected' && <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />}
-          {status === 'disconnected' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
-          <span className={cn('text-[11px] font-medium', {
-            'text-amber-600': status === 'checking',
-            'text-teal-700': status === 'connected',
-            'text-red-600': status === 'disconnected',
-          })}>
-            {status === 'checking' && 'Connecting…'}
-            {status === 'connected' && `Strapi · ${types.length} type${types.length !== 1 ? 's' : ''}`}
-            {status === 'disconnected' && 'Strapi offline'}
+          <Database className="w-3.5 h-3.5 text-teal-600" />
+          <span className="text-[11px] font-semibold text-slate-700">
+            CMS {types.length > 0 && <span className="text-slate-400 font-normal">· {types.length} type{types.length !== 1 ? 's' : ''}</span>}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {status === 'connected' && (
-            <a
-              href="http://localhost:1337/admin"
-              target="_blank"
-              rel="noreferrer"
-              title="Open Strapi admin"
-              className="p-1 rounded hover:bg-slate-200 transition-colors"
-            >
-              <ExternalLink className="w-3 h-3 text-slate-400" />
-            </a>
-          )}
-          <button
-            onClick={refresh}
-            disabled={loading}
-            title="Refresh"
-            className="p-1 rounded hover:bg-slate-200 transition-colors"
-          >
+          <button onClick={loadTypes} disabled={loading} title="Refresh" className="p-1 rounded hover:bg-slate-200">
             <RefreshCw className={cn('w-3 h-3 text-slate-400', loading && 'animate-spin')} />
+          </button>
+          <button
+            onClick={() => setShowNewType((v) => !v)}
+            title="New content type"
+            className="p-1 rounded hover:bg-slate-200"
+          >
+            <Plus className="w-3.5 h-3.5 text-teal-600" />
           </button>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      {/* New type form */}
+      {showNewType && (
+        <NewTypeForm onSave={createType} onCancel={() => setShowNewType(false)} />
+      )}
 
-        {/* Disconnected state */}
-        {status === 'disconnected' && (
-          <div className="p-5 text-center">
-            <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
-            <p className="text-xs text-slate-600 font-medium mb-1">Strapi is not running</p>
-            <p className="text-[10px] text-slate-400 mb-3">
-              Start it with:
-            </p>
-            <code className="block bg-slate-100 border border-slate-200 rounded px-3 py-2 text-[10px] text-slate-700 font-mono mb-4">
-              npm run dev:cms
-            </code>
-            <p className="text-[10px] text-slate-400">
-              Then open{' '}
-              <a
-                href="http://localhost:1337/admin"
-                target="_blank"
-                rel="noreferrer"
-                className="text-teal-600 underline"
-              >
-                localhost:1337/admin
-              </a>{' '}
-              to create your first content type.
-            </p>
-          </div>
-        )}
+      {/* Type list */}
+      {types.length === 0 && !showNewType && (
+        <div className="p-4 text-center">
+          <Database className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+          <p className="text-[11px] text-slate-500 mb-1">No content types yet</p>
+          <button
+            onClick={() => setShowNewType(true)}
+            className="text-[11px] text-teal-600 hover:text-teal-700 underline"
+          >
+            Create your first type
+          </button>
+        </div>
+      )}
 
-        {/* Empty state */}
-        {status === 'connected' && types.length === 0 && !loading && (
-          <div className="p-5 text-center">
-            <Database className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-            <p className="text-xs text-slate-500 font-medium mb-1">No content types yet</p>
-            <p className="text-[10px] text-slate-400 mb-3">
-              Create a collection type in the Strapi admin, then refresh.
-            </p>
-            <a
-              href="http://localhost:1337/admin/plugins/content-type-builder"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-[10px] text-teal-600 hover:text-teal-700 underline"
-            >
-              Open Content-Type Builder <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-        )}
+      {types.map((type) => {
+        const isOpen = expanded === type.id;
+        const typeEntries = entries[type.id];
+        const typeFields = type.fields as CmsField[];
 
-        {/* Content type list */}
-        {status === 'connected' && types.map((type) => {
-          const isExpanded = expanded === type.uid;
-          const entries = previews[type.uid];
-
-          return (
-            <div key={type.uid} className="border-b border-slate-100 last:border-0">
-              {/* Type row */}
-              <div className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 transition-colors group">
-                {/* Expand toggle */}
-                <button
-                  onClick={() => toggle(type)}
-                  className="shrink-0 text-slate-400 hover:text-teal-600"
-                >
-                  {isExpanded
-                    ? <ChevronDown className="w-3.5 h-3.5" />
-                    : <ChevronRight className="w-3.5 h-3.5" />
-                  }
-                </button>
-
-                <Database className="w-3.5 h-3.5 shrink-0 text-teal-600" />
-
-                {/* Info */}
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggle(type)}>
-                  <div className="text-xs font-medium text-slate-700 truncate">{type.displayName}</div>
-                  <div className="text-[10px] text-slate-400 truncate">
-                    {type.kind === 'singleType' ? 'Single Type' : 'Collection'} · /{type.pluralName}
-                  </div>
-                </div>
-
-                {/* Add to canvas button */}
-                <button
-                  onClick={() => addToCanvas(type)}
-                  title="Add to canvas"
-                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded bg-teal-600 hover:bg-teal-700 text-white"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+        return (
+          <div key={type.id} className="border-b border-slate-100 last:border-0">
+            {/* Type row */}
+            <div className="flex items-center gap-1.5 px-3 py-2 hover:bg-slate-50 group">
+              <button onClick={() => toggleExpand(type.id)} className="shrink-0 text-slate-400 hover:text-teal-600">
+                {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </button>
+              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => toggleExpand(type.id)}>
+                <div className="text-[11px] font-medium text-slate-700 truncate">{type.name}</div>
+                <div className="text-[10px] text-slate-400">{type.entryCount} {type.entryCount === 1 ? 'entry' : 'entries'}</div>
               </div>
-
-              {/* Entry previews */}
-              {isExpanded && (
-                <div className="bg-slate-50 border-t border-slate-100 px-3 pb-3">
-                  {!entries ? (
-                    <div className="py-3 flex items-center gap-2 text-[10px] text-slate-400">
-                      <RefreshCw className="w-3 h-3 animate-spin" /> Loading entries…
-                    </div>
-                  ) : entries.length === 0 ? (
-                    <div className="py-3 text-[10px] text-slate-400">
-                      No published entries yet.
-                    </div>
-                  ) : (
-                    <div className="pt-2 space-y-1.5">
-                      {entries.map((entry) => (
-                        <div
-                          key={entry.documentId}
-                          className="flex items-start gap-2 py-1.5 px-2 bg-white rounded border border-slate-200"
-                        >
-                          <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0 mt-1.5" />
-                          <div className="min-w-0">
-                            <div className="text-[11px] font-medium text-slate-700 truncate">
-                              {entryTitle(entry)}
-                            </div>
-                            {entryExcerpt(entry, 60) && (
-                              <div className="text-[10px] text-slate-400 truncate">
-                                {entryExcerpt(entry, 60)}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-[9px] text-slate-300 font-mono shrink-0 ml-auto">
-                            {entry.documentId.slice(0, 6)}
-                          </span>
-                        </div>
-                      ))}
-                      <p className="text-[9px] text-slate-400 text-center pt-1">
-                        Click <span className="font-semibold text-teal-600">+</span> on the row above to add this collection to the canvas
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Add to canvas */}
+              <button
+                onClick={() => addToCanvas(type)}
+                title="Add to canvas"
+                className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded bg-teal-600 hover:bg-teal-700 text-white transition-opacity"
+              >
+                <Layout className="w-3 h-3" />
+              </button>
+              {/* Delete type */}
+              <button
+                onClick={() => deleteType(type.id)}
+                title="Delete type"
+                className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-slate-300 hover:text-red-400 transition-opacity"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Entries */}
+            {isOpen && (
+              <div className="bg-slate-50 border-t border-slate-100">
+                {!typeEntries ? (
+                  <div className="flex items-center gap-1.5 px-4 py-2 text-[10px] text-slate-400">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <>
+                    {typeEntries.map((entry) => {
+                      const isEditing = editingEntry?.entry.id === entry.id;
+                      return (
+                        <div key={entry.id}>
+                          {isEditing ? (
+                            <EntryForm
+                              fields={typeFields}
+                              initial={entry.data as Record<string, unknown>}
+                              onSave={(data) => updateEntry(type.id, entry.id, data)}
+                              onCancel={() => setEditingEntry(null)}
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-100 group/entry hover:bg-white">
+                              <div className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />
+                              <span className="flex-1 text-[11px] text-slate-600 truncate">
+                                {entryTitle(entry, typeFields)}
+                              </span>
+                              <button
+                                onClick={() => setEditingEntry({ typeId: type.id, entry })}
+                                className="opacity-0 group-hover/entry:opacity-100 p-0.5 text-slate-300 hover:text-teal-600"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => deleteEntry(type.id, entry.id)}
+                                className="opacity-0 group-hover/entry:opacity-100 p-0.5 text-slate-300 hover:text-red-400"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Add entry form */}
+                    {addingEntry === type.id ? (
+                      <EntryForm
+                        fields={typeFields}
+                        onSave={(data) => createEntry(type.id, data)}
+                        onCancel={() => setAddingEntry(null)}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => { setAddingEntry(type.id); setEditingEntry(null); }}
+                        className="flex items-center gap-1 px-4 py-2 text-[11px] text-teal-600 hover:text-teal-700 hover:bg-white w-full"
+                      >
+                        <Plus className="w-3 h-3" /> Add entry
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
