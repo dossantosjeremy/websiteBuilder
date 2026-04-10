@@ -44,24 +44,31 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
 
     const init = async () => {
       try {
-        const [gjsResult, ...pluginResults] = await Promise.allSettled([
+        // ── Import all plugins ───────────────────────────────────────────────
+        // Critical plugins run as-is (they were working before; wrapping them
+        // caused partial-init corruption when they threw mid-execution).
+        // Optional enhancement plugins are wrapped so a single bad plugin
+        // cannot crash the editor.
+        const [gjsResult, ...allPluginResults] = await Promise.allSettled([
           import('grapesjs'),
-          import('grapesjs-preset-webpage'),
-          import('grapesjs-navbar'),
-          import('grapesjs-tabs'),
-          import('grapesjs-custom-code'),
-          import('grapesjs-touch'),
-          import('grapesjs-tooltip'),
-          import('grapesjs-typed'),
-          import('grapesjs-style-gradient'),
-          import('grapesjs-style-filter'),
-          import('grapesjs-style-bg'),
-          import('grapesjs-blocks-flexbox'),
-          import('grapesjs-plugin-forms'),
-          import('grapesjs-component-countdown'),
-          import('grapesjs-lory-slider'),
-          import('grapesjs-plugin-export'),
-          import('grapesjs-tui-image-editor'),
+          // ── Critical (no wrap) ──
+          import('grapesjs-preset-webpage'),   // 0
+          import('grapesjs-navbar'),           // 1
+          import('grapesjs-tabs'),             // 2
+          import('grapesjs-custom-code'),      // 3
+          import('grapesjs-touch'),            // 4
+          import('grapesjs-tooltip'),          // 5
+          import('grapesjs-typed'),            // 6
+          import('grapesjs-style-gradient'),   // 7
+          import('grapesjs-style-filter'),     // 8
+          import('grapesjs-style-bg'),         // 9
+          import('grapesjs-blocks-flexbox'),   // 10
+          import('grapesjs-plugin-forms'),     // 11
+          import('grapesjs-component-countdown'), // 12
+          // ── Optional (will be safe-wrapped) ──
+          import('grapesjs-lory-slider'),      // 13
+          import('grapesjs-plugin-export'),    // 14
+          import('grapesjs-tui-image-editor'), // 15
         ]);
 
         if (gjsResult.status === 'rejected') {
@@ -73,24 +80,25 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
         const gjs = resolve(gjsResult.value);
         const loadedPlugins: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        // Wrap each plugin so a runtime error during init doesn't crash the editor
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const safeWrap = (plugin: any, name: string) => (editor: any, opts: any) => {
           try { plugin(editor, opts); }
-          catch (e) { console.warn(`Plugin "${name}" failed during init, skipping:`, e); }
+          catch (e) { console.warn(`Optional plugin "${name}" failed, skipping:`, e); }
         };
 
-        const pluginNames = [
-          'preset-webpage', 'navbar', 'tabs', 'custom-code', 'touch',
-          'tooltip', 'typed', 'style-gradient', 'style-filter', 'style-bg',
-          'blocks-flexbox', 'plugin-forms', 'component-countdown',
-          'lory-slider', 'plugin-export', 'tui-image-editor',
-        ];
-        pluginResults.forEach((r, i) => {
-          if (r.status === 'fulfilled') {
-            loadedPlugins.push(safeWrap(resolve(r.value), pluginNames[i] ?? `plugin-${i}`));
+        const CRITICAL_COUNT = 13; // indices 0-12
+        const optionalNames = ['lory-slider', 'plugin-export', 'tui-image-editor'];
+
+        allPluginResults.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.warn(`Plugin import [${i}] failed:`, r.reason);
+            return;
+          }
+          const plugin = resolve(r.value);
+          if (i < CRITICAL_COUNT) {
+            loadedPlugins.push(plugin); // run directly
           } else {
-            console.warn(`Plugin "${pluginNames[i]}" import failed, skipping:`, r.reason);
+            loadedPlugins.push(safeWrap(plugin, optionalNames[i - CRITICAL_COUNT] ?? `opt-${i}`));
           }
         });
 

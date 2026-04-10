@@ -257,7 +257,22 @@ a { color: inherit; text-decoration: none; }
 .gjs-blocks-panel::-webkit-scrollbar-thumb,
 .gjs-views-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 
-/* ── Right-panel views container ── */
+/* ── Views container — fill remaining left-panel height ── */
+#gjs-views-container {
+  overflow-y: auto;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: block !important;
+}
+/* All manager views inside should be scrollable and fully visible */
+#gjs-views-container > div,
+#gjs-views-container .gjs-sm-sectors,
+#gjs-views-container .gjs-blocks-c,
+#gjs-views-container .gjs-layer-manager,
+#gjs-views-container .gjs-tms-container {
+  height: auto !important;
+  min-height: 0;
+}
 .gjs-views-container { overflow-y: auto; }
 
 /* ── Color picker ── */
