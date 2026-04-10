@@ -51,6 +51,15 @@ export const aiChatHistory = pgTable('ai_chat_history', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// ── App settings (per-user config: AI key, Vercel token, etc.) ───────────────
+export const appSettings = pgTable('app_settings', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).unique(),
+  data: jsonb('data').notNull().default({}),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+export type AppSettings = InferSelectModel<typeof appSettings>;
+
 // ── CMS ───────────────────────────────────────────────────────────────────────
 export const cmsContentTypes = pgTable('cms_content_types', {
   id: serial('id').primaryKey(),

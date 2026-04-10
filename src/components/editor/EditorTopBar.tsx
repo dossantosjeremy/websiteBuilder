@@ -6,7 +6,7 @@ import {
   ArrowLeft,
   Clock,
   Bookmark,
-  FileText,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,13 +18,13 @@ import UndoRedoButtons from './UndoRedoButtons';
 import ExportButton from './ExportButton';
 import ImportButton from './ImportButton';
 import DeployButton from './DeployButton';
-import PagesModal from './PagesModal';
+import SettingsModal from './SettingsModal';
 
 export default function EditorTopBar() {
   const { editor, project, isSaving, lastSaved, saveProject } = useEditorContext();
   const [versionDrawerOpen, setVersionDrawerOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [pagesModalOpen, setPagesModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [projectName, setProjectName] = useState(project.name);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -98,21 +98,6 @@ export default function EditorTopBar() {
             </span>
           )}
 
-          {/* Pages button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 gap-1"
-                onClick={() => setPagesModalOpen(true)}
-              >
-                <FileText className="h-4 w-4" />
-                <span className="text-xs">Pages</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Manage Pages</TooltipContent>
-          </Tooltip>
         </div>
 
         {/* Right section */}
@@ -162,6 +147,19 @@ export default function EditorTopBar() {
 
           <div className="h-4 w-px bg-slate-200 mx-1" />
 
+          {/* Settings */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+                onClick={() => setSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Settings</TooltipContent>
+          </Tooltip>
+
+          <div className="h-4 w-px bg-slate-200 mx-1" />
+
           {/* Deploy */}
           <DeployButton />
 
@@ -184,10 +182,7 @@ export default function EditorTopBar() {
         isSaving={isSaving}
       />
 
-      <PagesModal
-        open={pagesModalOpen}
-        onClose={() => setPagesModalOpen(false)}
-      />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </TooltipProvider>
   );
 }

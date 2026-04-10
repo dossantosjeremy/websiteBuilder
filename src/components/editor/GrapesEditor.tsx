@@ -9,15 +9,23 @@ import CmsPanel from './CmsPanel';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const resolve = (mod: any) => mod.default ?? mod;
 
-export default function GrapesEditor() {
+interface Props {
+  leftPanelWidth?: number;
+  onLeftResize?: (dx: number) => void;
+}
+
+export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { setEditor, project, pages, currentPageIndex, setPages } = useEditorContext();
+  const [zoom, setZoom] = useState(100);
   const initDoneRef = useRef(false);
   const editorInstanceRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pagesRef = useRef<PageData[]>(pages);
   const currentPageIndexRef = useRef<number>(currentPageIndex);
   const [initError, setInitError] = useState<string | null>(null);
+  const leftResizeDragging = useRef(false);
+  const leftResizeLastX = useRef(0);
   pagesRef.current = pages;
   currentPageIndexRef.current = currentPageIndex;
 
@@ -179,12 +187,46 @@ export default function GrapesEditor() {
     );
   }
 
+  const handleLeftMouseDown = (e: React.MouseEvent) => {
+    if (!onLeftResize) return;
+    e.preventDefault();
+    leftResizeDragging.current = true;
+    leftResizeLastX.current = e.clientX;
+    const onMove = (ev: MouseEvent) => {
+      if (!leftResizeDragging.current) return;
+      onLeftResize(ev.clientX - leftResizeLastX.current);
+      leftResizeLastX.current = ev.clientX;
+    };
+    const onUp = () => {
+      leftResizeDragging.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const changeZoom = (delta: number) => {
+    const editor = editorInstanceRef.current;
+    if (!editor) return;
+    const next = Math.min(200, Math.max(25, (editor.Canvas.getZoom?.() ?? zoom) + delta));
+    editor.Canvas.setZoom?.(next);
+    setZoom(next);
+  };
+
+  const resetZoom = () => {
+    const editor = editorInstanceRef.current;
+    if (!editor) return;
+    editor.Canvas.setZoom?.(100);
+    setZoom(100);
+  };
+
   return (
     <div className="flex flex-1 h-full overflow-hidden">
       {/* Left panel */}
       <div
         className="shrink-0 flex flex-col border-r border-slate-200 bg-white"
-        style={{ width: 260 }}
+        style={{ width: leftPanelWidth }}
       >
         {/* GrapesJS icon strip — style / layers / traits / blocks buttons */}
         <div
@@ -198,7 +240,7 @@ export default function GrapesEditor() {
           <PagesSidebarPanel />
         </div>
 
-        {/* CMS — Strapi content types */}
+        {/* CMS content types */}
         <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '40%', overflowY: 'auto' }}>
           <CmsPanel />
         </div>
@@ -210,12 +252,38 @@ export default function GrapesEditor() {
         />
       </div>
 
-      {/* Canvas */}
-      <div
-        ref={canvasRef}
-        id="gjs"
-        className="flex-1 h-full min-w-0"
-      />
+      {/* Left resize handle */}
+      {onLeftResize && (
+        <div
+          onMouseDown={handleLeftMouseDown}
+          className="shrink-0 w-1 cursor-col-resize bg-slate-200 hover:bg-teal-400 active:bg-teal-500 transition-colors"
+          style={{ zIndex: 10 }}
+        />
+      )}
+
+      {/* Canvas + zoom overlay */}
+      <div className="relative flex-1 h-full min-w-0">
+        <div ref={canvasRef} id="gjs" className="w-full h-full" />
+
+        {/* Zoom controls — bottom centre */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg shadow-sm px-2 py-1 z-20 select-none">
+          <button
+            onClick={() => changeZoom(-10)}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
+            title="Zoom out"
+          >−</button>
+          <button
+            onClick={resetZoom}
+            className="px-2 h-6 text-xs text-slate-600 hover:bg-slate-100 rounded font-mono min-w-[42px] text-center"
+            title="Reset zoom"
+          >{zoom}%</button>
+          <button
+            onClick={() => changeZoom(10)}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
+            title="Zoom in"
+          >+</button>
+        </div>
+      </div>
     </div>
   );
 }
