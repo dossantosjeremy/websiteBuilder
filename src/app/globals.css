@@ -273,9 +273,13 @@ a { color: inherit; text-decoration: none; }
 .gjs-left-panel-content::-webkit-scrollbar-track { background: var(--gjs-bg-2); }
 .gjs-left-panel-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 
-/* Hide any residual GrapesJS right-side panel chrome (panels: { defaults: [] }
-   means nothing should render there, but guard just in case)                   */
-.gjs-pn-views, .gjs-pn-views-container { display: none !important; }
+/* ── Hide GrapesJS's built-in right-side panel chrome ───────────────────
+   preset-webpage adds icon buttons to .gjs-pn-views and the manager
+   content containers to .gjs-pn-views-container. We redirect the content
+   to our left sidebar via appendTo, so we hide GrapesJS's own chrome.
+   This makes the canvas expand to full width automatically.               */
+#gjs .gjs-pn-views { display: none !important; }
+#gjs .gjs-pn-views-container { display: none !important; }
 
 /* ── Color picker ── */
 .gjs-field-color-picker { border-color: var(--gjs-border) !important; }

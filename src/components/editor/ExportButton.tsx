@@ -37,7 +37,10 @@ export default function ExportButton() {
     setLoading(true);
     try {
       const JSZip = (await import('jszip')).default;
-      const { saveAs } = await import('file-saver');
+      // file-saver may use default or named export depending on bundler
+      const fileSaverMod = await import('file-saver');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const saveAs: (blob: Blob, name: string) => void = (fileSaverMod as any).saveAs ?? (fileSaverMod as any).default?.saveAs ?? (fileSaverMod as any).default;
       const zip = new JSZip();
 
       // Current page — use live editor data (always accurate)

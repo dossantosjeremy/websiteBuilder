@@ -112,16 +112,14 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
           undoManager: { trackChanges: true },
 
           // ── Route every manager into our left-sidebar DOM elements ──────
-          // This is the correct GrapesJS API: appendTo on each manager.
-          // GrapesJS mounts the manager's UI into whichever element matches.
+          // appendTo tells GrapesJS where to mount each manager's UI.
+          // We do NOT set panels: { defaults: [] } — that breaks preset-webpage
+          // (it needs to add buttons to the 'views' panel). Instead we hide the
+          // GrapesJS right-side panel chrome via CSS so only our sidebar shows.
           blockManager:  { appendTo: '#left-panel-blocks' },
           styleManager:  { appendTo: '#left-panel-styles' },
           layerManager:  { appendTo: '#left-panel-layers' },
           traitManager:  { appendTo: '#left-panel-traits' },
-
-          // Disable ALL default GrapesJS panel chrome (the icon strip + container
-          // that render on the right of the canvas). Our sidebar replaces them.
-          panels: { defaults: [] },
 
           deviceManager: {
             devices: [
@@ -161,10 +159,14 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
           }, 500);
         };
 
-        editor.on('component:add',    onEditorChange);
-        editor.on('component:remove', onEditorChange);
-        editor.on('component:update', onEditorChange);
-        editor.on('style:change',     onEditorChange);
+        // Use targeted events only — 'component:update' fires on every internal
+        // GrapesJS tick (e.g. countdown plugin) causing an infinite save loop.
+        editor.on('component:add',         onEditorChange);
+        editor.on('component:remove',      onEditorChange);
+        editor.on('component:styleUpdate', onEditorChange);
+        editor.on('component:input',       onEditorChange);
+        editor.on('style:change',          onEditorChange);
+        editor.on('canvas:drop',           onEditorChange);
 
         editorInstanceRef.current = editor;
         setEditor(editor);
