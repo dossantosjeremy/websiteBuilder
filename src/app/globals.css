@@ -56,20 +56,13 @@ a { color: inherit; text-decoration: none; }
   border-color: var(--gjs-border);
 }
 
-/* Panel buttons (view switcher icons — now horizontal across the top of the left panel) */
+/* Panel buttons */
 .gjs-pn-btn {
   color: var(--gjs-text-muted) !important;
   background: transparent;
-  border-radius: 0;
-  margin: 0;
-  padding: 0 !important;
-  height: 40px !important;
-  width: 40px !important;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid var(--gjs-border);
-  flex-shrink: 0;
+  border-radius: 4px;
+  margin: 2px;
+  padding: 4px !important;
 }
 .gjs-pn-btn:hover {
   color: var(--gjs-teal) !important;
@@ -80,8 +73,6 @@ a { color: inherit; text-decoration: none; }
   background-color: var(--gjs-teal-light) !important;
   border-bottom: 2px solid var(--gjs-teal) !important;
 }
-/* Force the views panel to lay out buttons in a row */
-#gjs-views-buttons { display: flex !important; flex-direction: row !important; }
 
 /* ── Block manager ── */
 .gjs-block-category .gjs-title {
@@ -249,40 +240,42 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid var(--gjs-border) !important;
 }
 
-/* ── Scrollbars ── */
-.gjs-blocks-panel::-webkit-scrollbar,
-.gjs-views-container::-webkit-scrollbar { width: 4px; }
-.gjs-blocks-panel::-webkit-scrollbar-track,
-.gjs-views-container::-webkit-scrollbar-track { background: var(--gjs-bg-2); }
-.gjs-blocks-panel::-webkit-scrollbar-thumb,
-.gjs-views-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+/* ── Left-sidebar panel containers ──────────────────────────────────────
+   GrapesJS appends each manager (blocks / styles / layers / traits) into
+   our custom #left-panel-* divs.  We need to make sure the managers fill
+   their container and do NOT add extra scrollbars of their own — the
+   parent .gjs-left-panel-content div handles the single scroll bar.     */
 
-/* ── Views container: fill flex column, scroll internally ── */
-#gjs-views-container {
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;   /* outer: no scroll — inner panels scroll */
+/* Blocks panel injected by GrapesJS */
+#left-panel-blocks .gjs-blocks-panel,
+#left-panel-blocks .gjs-block-categories { width: 100%; }
+
+/* Style-manager sectors */
+#left-panel-styles .gjs-sm-sectors { width: 100%; }
+
+/* Layer manager */
+#left-panel-layers .gjs-layer-manager { width: 100%; }
+
+/* Trait manager */
+#left-panel-traits .gjs-trt-traits { width: 100%; }
+
+/* Remove inner scroll on all manager containers — scroll comes from parent */
+.gjs-left-panel-content .gjs-blocks-panel,
+.gjs-left-panel-content .gjs-sm-sectors,
+.gjs-left-panel-content .gjs-layer-manager,
+.gjs-left-panel-content .gjs-tms-container {
+  overflow: visible !important;
+  height: auto !important;
 }
-/* The direct GrapesJS panel wrapper GrapesJS injects */
-#gjs-views-container > div {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 1 0% !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
-/* Every manager view must be able to scroll its own content */
-.gjs-blocks-panel,
-.gjs-sm-sectors,
-.gjs-layer-manager,
-.gjs-tms-container {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-}
-.gjs-views-container { overflow-y: auto; }
+
+/* ── Scrollbars (on our wrapper) ── */
+.gjs-left-panel-content::-webkit-scrollbar { width: 4px; }
+.gjs-left-panel-content::-webkit-scrollbar-track { background: var(--gjs-bg-2); }
+.gjs-left-panel-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+/* Hide any residual GrapesJS right-side panel chrome (panels: { defaults: [] }
+   means nothing should render there, but guard just in case)                   */
+.gjs-pn-views, .gjs-pn-views-container { display: none !important; }
 
 /* ── Color picker ── */
 .gjs-field-color-picker { border-color: var(--gjs-border) !important; }

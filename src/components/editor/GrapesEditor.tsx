@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { ChevronDown, ChevronRight, Layers, Palette, LayoutGrid, Settings2 } from 'lucide-react';
 import { useEditorContext, type PageData } from './EditorContext';
 import 'grapesjs/dist/css/grapes.min.css';
 import PagesSidebarPanel from './PagesSidebarPanel';
@@ -10,12 +10,14 @@ import CmsPanel from './CmsPanel';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const resolve = (mod: any) => mod.default ?? mod;
 
+type EditorTab = 'blocks' | 'styles' | 'layers' | 'traits';
+
 interface Props {
   leftPanelWidth?: number;
   onLeftResize?: (dx: number) => void;
 }
 
-export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Props) {
+export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { setEditor, project, pages, currentPageIndex, setPages } = useEditorContext();
   const [zoom, setZoom] = useState(100);
@@ -25,10 +27,19 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
   const pagesRef = useRef<PageData[]>(pages);
   const currentPageIndexRef = useRef<number>(currentPageIndex);
   const [initError, setInitError] = useState<string | null>(null);
+
+  // Left sidebar section open/close
   const [pagesOpen, setPagesOpen] = useState(false);
   const [cmsOpen, setCmsOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(true);
+
+  // Active tab inside the Editor section
+  const [activeTab, setActiveTab] = useState<EditorTab>('blocks');
+
+  // Resize
   const leftResizeDragging = useRef(false);
   const leftResizeLastX = useRef(0);
+
   pagesRef.current = pages;
   currentPageIndexRef.current = currentPageIndex;
 
@@ -47,62 +58,48 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
 
     const init = async () => {
       try {
-        // ── Import all plugins ───────────────────────────────────────────────
-        // Critical plugins run as-is (they were working before; wrapping them
-        // caused partial-init corruption when they threw mid-execution).
-        // Optional enhancement plugins are wrapped so a single bad plugin
-        // cannot crash the editor.
         const [gjsResult, ...allPluginResults] = await Promise.allSettled([
           import('grapesjs'),
-          // ── Critical (no wrap) ──
-          import('grapesjs-preset-webpage'),   // 0
-          import('grapesjs-navbar'),           // 1
-          import('grapesjs-tabs'),             // 2
-          import('grapesjs-custom-code'),      // 3
-          import('grapesjs-touch'),            // 4
-          import('grapesjs-tooltip'),          // 5
-          import('grapesjs-typed'),            // 6
-          import('grapesjs-style-gradient'),   // 7
-          import('grapesjs-style-filter'),     // 8
-          import('grapesjs-style-bg'),         // 9
-          import('grapesjs-blocks-flexbox'),   // 10
-          import('grapesjs-plugin-forms'),     // 11
+          // Critical — run directly
+          import('grapesjs-preset-webpage'),      // 0
+          import('grapesjs-navbar'),              // 1
+          import('grapesjs-tabs'),                // 2
+          import('grapesjs-custom-code'),         // 3
+          import('grapesjs-touch'),               // 4
+          import('grapesjs-tooltip'),             // 5
+          import('grapesjs-typed'),               // 6
+          import('grapesjs-style-gradient'),      // 7
+          import('grapesjs-style-filter'),        // 8
+          import('grapesjs-style-bg'),            // 9
+          import('grapesjs-blocks-flexbox'),      // 10
+          import('grapesjs-plugin-forms'),        // 11
           import('grapesjs-component-countdown'), // 12
-          // ── Optional (will be safe-wrapped) ──
-          import('grapesjs-lory-slider'),      // 13
-          import('grapesjs-plugin-export'),    // 14
-          import('grapesjs-tui-image-editor'), // 15
+          // Optional — safe-wrapped
+          import('grapesjs-lory-slider'),         // 13
+          import('grapesjs-plugin-export'),       // 14
+          import('grapesjs-tui-image-editor'),    // 15
         ]);
 
-        if (gjsResult.status === 'rejected') {
-          throw new Error(`GrapesJS core failed: ${gjsResult.reason}`);
-        }
-
+        if (gjsResult.status === 'rejected') throw new Error(`GrapesJS core failed: ${gjsResult.reason}`);
         if (!mounted || !canvasRef.current) return;
 
         const gjs = resolve(gjsResult.value);
         const loadedPlugins: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const safeWrap = (plugin: any, name: string) => (editor: any, opts: any) => {
+        const safeWrap = (plugin: any, name: string) => (editor: any, opts: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
           try { plugin(editor, opts); }
-          catch (e) { console.warn(`Optional plugin "${name}" failed, skipping:`, e); }
+          catch (e) { console.warn(`Optional plugin "${name}" skipped:`, e); }
         };
 
-        const CRITICAL_COUNT = 13; // indices 0-12
+        const CRITICAL_COUNT = 13;
         const optionalNames = ['lory-slider', 'plugin-export', 'tui-image-editor'];
 
         allPluginResults.forEach((r, i) => {
-          if (r.status === 'rejected') {
-            console.warn(`Plugin import [${i}] failed:`, r.reason);
-            return;
-          }
+          if (r.status === 'rejected') { console.warn(`Plugin [${i}] failed:`, r.reason); return; }
           const plugin = resolve(r.value);
-          if (i < CRITICAL_COUNT) {
-            loadedPlugins.push(plugin); // run directly
-          } else {
-            loadedPlugins.push(safeWrap(plugin, optionalNames[i - CRITICAL_COUNT] ?? `opt-${i}`));
-          }
+          loadedPlugins.push(
+            i < CRITICAL_COUNT ? plugin : safeWrap(plugin, optionalNames[i - CRITICAL_COUNT] ?? `opt-${i}`)
+          );
         });
 
         const initialData = getInitialData();
@@ -113,60 +110,61 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
           width: '100%',
           storageManager: false,
           undoManager: { trackChanges: true },
-          // Let preset-webpage populate the views panel with buttons
-          panels: {
-            defaults: [
-              // The preset adds open-sm / open-layers / open-blocks / open-tm buttons here
-              { id: 'views', el: '#gjs-views-buttons' },
-              // GrapesJS shows the active manager content in this container
-              { id: 'views-container', el: '#gjs-views-container' },
-            ],
-          },
-          // No custom appendTo — blocks + style + layers + traits all route through
-          // the native views-container, switched by the panel buttons on the right
-          styleManager: {},
-          layerManager: {},
-          traitManager: {},
+
+          // ── Route every manager into our left-sidebar DOM elements ──────
+          // This is the correct GrapesJS API: appendTo on each manager.
+          // GrapesJS mounts the manager's UI into whichever element matches.
+          blockManager:  { appendTo: '#left-panel-blocks' },
+          styleManager:  { appendTo: '#left-panel-styles' },
+          layerManager:  { appendTo: '#left-panel-layers' },
+          traitManager:  { appendTo: '#left-panel-traits' },
+
+          // Disable ALL default GrapesJS panel chrome (the icon strip + container
+          // that render on the right of the canvas). Our sidebar replaces them.
+          panels: { defaults: [] },
+
           deviceManager: {
             devices: [
-              { name: 'Desktop', width: '' },
-              { name: 'Tablet', width: '768px', widthMedia: '1024px' },
-              { name: 'Mobile landscape', width: '568px', widthMedia: '767px' },
-              { name: 'Mobile portrait', width: '320px', widthMedia: '480px' },
+              { name: 'Desktop',           width: ''      },
+              { name: 'Tablet',            width: '768px',  widthMedia: '1024px' },
+              { name: 'Mobile landscape',  width: '568px',  widthMedia: '767px'  },
+              { name: 'Mobile portrait',   width: '320px',  widthMedia: '480px'  },
             ],
           },
+
           assetManager: {
             upload: '/api/upload',
             uploadName: 'file',
             assets: [],
             multiUpload: true,
           },
+
           plugins: loadedPlugins,
           pluginsOpts: {},
         });
 
-        const comps = initialData.components as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const comps  = initialData.components as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
         const styles = initialData.styles as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (comps?.length > 0) editor.setComponents(comps);
+        if (comps?.length  > 0) editor.setComponents(comps);
         if (styles?.length > 0) editor.setStyle(styles);
 
         const onEditorChange = () => {
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {
-            const components = editor.getComponents().toJSON();
+            const components   = editor.getComponents().toJSON();
             const editorStyles = editor.getStyle().toJSON();
-            const latestPages = pagesRef.current;
-            const latestIdx = currentPageIndexRef.current;
+            const latestPages  = pagesRef.current;
+            const latestIdx    = currentPageIndexRef.current;
             setPages(latestPages.map((p, i) =>
               i === latestIdx ? { ...p, components, styles: editorStyles } : p
             ));
           }, 500);
         };
 
-        editor.on('component:add', onEditorChange);
+        editor.on('component:add',    onEditorChange);
         editor.on('component:remove', onEditorChange);
         editor.on('component:update', onEditorChange);
-        editor.on('style:change', onEditorChange);
+        editor.on('style:change',     onEditorChange);
 
         editorInstanceRef.current = editor;
         setEditor(editor);
@@ -187,17 +185,7 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (initError) {
-    return (
-      <div className="flex flex-col items-center justify-center flex-1 h-full text-red-600 text-xs p-8 gap-2 bg-white">
-        <p className="font-semibold">Editor failed to initialise</p>
-        <pre className="bg-red-50 border border-red-200 rounded p-3 max-w-full overflow-auto whitespace-pre-wrap text-red-700">
-          {initError}
-        </pre>
-      </div>
-    );
-  }
-
+  // ── Handlers ────────────────────────────────────────────────────────────
   const handleLeftMouseDown = (e: React.MouseEvent) => {
     if (!onLeftResize) return;
     e.preventDefault();
@@ -232,65 +220,113 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
     setZoom(100);
   };
 
+  // ── UI helpers ───────────────────────────────────────────────────────────
+  const SectionHeader = ({
+    label, open, onToggle,
+  }: { label: string; open: boolean; onToggle: () => void }) => (
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold tracking-widest text-slate-500 hover:bg-slate-100 bg-slate-50 border-b border-slate-200 select-none"
+    >
+      <span>{label}</span>
+      {open
+        ? <ChevronDown  className="w-3 h-3 text-slate-400 shrink-0" />
+        : <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />}
+    </button>
+  );
+
+  const tabs: { id: EditorTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'blocks', label: 'Blocks', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+    { id: 'styles', label: 'Style',  icon: <Palette    className="w-3.5 h-3.5" /> },
+    { id: 'layers', label: 'Layers', icon: <Layers     className="w-3.5 h-3.5" /> },
+    { id: 'traits', label: 'Traits', icon: <Settings2  className="w-3.5 h-3.5" /> },
+  ];
+
+  if (initError) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 h-full text-red-600 text-xs p-8 gap-2 bg-white">
+        <p className="font-semibold">Editor failed to initialise</p>
+        <pre className="bg-red-50 border border-red-200 rounded p-3 max-w-full overflow-auto whitespace-pre-wrap text-red-700">
+          {initError}
+        </pre>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 h-full overflow-hidden">
-      {/* ── Left panel ──────────────────────────────────────────────────── */}
+
+      {/* ════════════════════════════════════════════════
+          LEFT SIDEBAR
+          ════════════════════════════════════════════════ */}
       <div
-        className="shrink-0 flex flex-col border-r border-slate-200 bg-white overflow-hidden"
+        className="shrink-0 flex flex-col h-full bg-white border-r border-slate-200 overflow-hidden"
         style={{ width: leftPanelWidth }}
       >
-        {/* GrapesJS icon strip — painted by preset-webpage */}
-        <div
-          id="gjs-views-buttons"
-          className="shrink-0 flex flex-row border-b border-slate-200 bg-slate-50"
-          style={{ minHeight: 40 }}
-        />
 
-        {/* GrapesJS manager content — gets all remaining space, scrolls inside */}
-        <div
-          id="gjs-views-container"
-          className="flex-1 min-h-0"
-          style={{ overflowY: 'auto', overflowX: 'hidden' }}
-        />
-
-        {/* ── Pages — collapsible drawer at bottom ── */}
-        <div className="shrink-0 border-t border-slate-200">
-          <button
-            onClick={() => setPagesOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 bg-slate-50"
-          >
-            <span>PAGES</span>
-            {pagesOpen
-              ? <ChevronDown className="w-3 h-3 text-slate-400" />
-              : <ChevronRight className="w-3 h-3 text-slate-400" />}
-          </button>
+        {/* ── PAGES ─────────────────────────────────── */}
+        <div className="shrink-0">
+          <SectionHeader label="PAGES" open={pagesOpen} onToggle={() => setPagesOpen(v => !v)} />
           {pagesOpen && (
-            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            <div className="overflow-y-auto" style={{ maxHeight: 200 }}>
               <PagesSidebarPanel />
             </div>
           )}
         </div>
 
-        {/* ── CMS — collapsible drawer at bottom ── */}
-        <div className="shrink-0 border-t border-slate-200">
-          <button
-            onClick={() => setCmsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 bg-slate-50"
-          >
-            <span>CMS</span>
-            {cmsOpen
-              ? <ChevronDown className="w-3 h-3 text-slate-400" />
-              : <ChevronRight className="w-3 h-3 text-slate-400" />}
-          </button>
+        {/* ── CMS ───────────────────────────────────── */}
+        <div className="shrink-0">
+          <SectionHeader label="CMS" open={cmsOpen} onToggle={() => setCmsOpen(v => !v)} />
           {cmsOpen && (
-            <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+            <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
               <CmsPanel />
+            </div>
+          )}
+        </div>
+
+        {/* ── EDITOR (Blocks / Style / Layers / Traits) ─
+            Takes all remaining height so panels can fill
+            the sidebar and scroll internally.           */}
+        <div className="flex flex-col flex-1 min-h-0">
+          <SectionHeader label="EDITOR" open={editorOpen} onToggle={() => setEditorOpen(v => !v)} />
+
+          {editorOpen && (
+            <div className="flex flex-col flex-1 min-h-0">
+
+              {/* Tab strip */}
+              <div className="shrink-0 flex border-b border-slate-200 bg-slate-50">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-semibold transition-colors
+                      ${activeTab === tab.id
+                        ? 'text-teal-600 border-b-2 border-teal-500 bg-white'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                      }`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Panel content area — scrollable, fills remaining height.
+                  ALL four divs are always in the DOM so GrapesJS can mount
+                  into them. We show/hide via display so GrapesJS internal
+                  state is never disrupted.                                */}
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden gjs-left-panel-content">
+                <div id="left-panel-blocks" style={{ display: activeTab === 'blocks' ? 'block' : 'none' }} />
+                <div id="left-panel-styles" style={{ display: activeTab === 'styles' ? 'block' : 'none' }} />
+                <div id="left-panel-layers" style={{ display: activeTab === 'layers' ? 'block' : 'none' }} />
+                <div id="left-panel-traits" style={{ display: activeTab === 'traits' ? 'block' : 'none' }} />
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Left resize handle */}
+      {/* ── Left resize handle ─────────────────────── */}
       {onLeftResize && (
         <div
           onMouseDown={handleLeftMouseDown}
@@ -299,11 +335,14 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
         />
       )}
 
-      {/* Canvas + zoom overlay */}
+      {/* ════════════════════════════════════════════════
+          CANVAS (GrapesJS renders only the canvas here,
+          all panels are in the sidebar above)
+          ════════════════════════════════════════════════ */}
       <div className="relative flex-1 h-full min-w-0">
         <div ref={canvasRef} id="gjs" className="w-full h-full" />
 
-        {/* Zoom controls — bottom centre */}
+        {/* Zoom controls */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg shadow-sm px-2 py-1 z-20 select-none">
           <button
             onClick={() => changeZoom(-10)}
