@@ -257,21 +257,30 @@ a { color: inherit; text-decoration: none; }
 .gjs-blocks-panel::-webkit-scrollbar-thumb,
 .gjs-views-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 
-/* ── Views container — fill remaining left-panel height ── */
+/* ── Views container: fill flex column, scroll internally ── */
 #gjs-views-container {
-  overflow-y: auto;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;   /* outer: no scroll — inner panels scroll */
+}
+/* The direct GrapesJS panel wrapper GrapesJS injects */
+#gjs-views-container > div {
+  display: flex !important;
+  flex-direction: column !important;
   flex: 1 1 0% !important;
   min-height: 0 !important;
-  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
-/* All manager views inside should be scrollable and fully visible */
-#gjs-views-container > div,
-#gjs-views-container .gjs-sm-sectors,
-#gjs-views-container .gjs-blocks-c,
-#gjs-views-container .gjs-layer-manager,
-#gjs-views-container .gjs-tms-container {
-  height: auto !important;
-  min-height: 0;
+/* Every manager view must be able to scroll its own content */
+.gjs-blocks-panel,
+.gjs-sm-sectors,
+.gjs-layer-manager,
+.gjs-tms-container {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
 }
 .gjs-views-container { overflow-y: auto; }
 

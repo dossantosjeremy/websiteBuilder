@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEditorContext, type PageData } from './EditorContext';
 import 'grapesjs/dist/css/grapes.min.css';
 import PagesSidebarPanel from './PagesSidebarPanel';
@@ -24,6 +25,8 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
   const pagesRef = useRef<PageData[]>(pages);
   const currentPageIndexRef = useRef<number>(currentPageIndex);
   const [initError, setInitError] = useState<string | null>(null);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [cmsOpen, setCmsOpen] = useState(false);
   const leftResizeDragging = useRef(false);
   const leftResizeLastX = useRef(0);
   pagesRef.current = pages;
@@ -231,33 +234,60 @@ export default function GrapesEditor({ leftPanelWidth = 260, onLeftResize }: Pro
 
   return (
     <div className="flex flex-1 h-full overflow-hidden">
-      {/* Left panel */}
+      {/* ── Left panel ──────────────────────────────────────────────────── */}
       <div
-        className="shrink-0 flex flex-col border-r border-slate-200 bg-white"
+        className="shrink-0 flex flex-col border-r border-slate-200 bg-white overflow-hidden"
         style={{ width: leftPanelWidth }}
       >
-        {/* GrapesJS icon strip — style / layers / traits / blocks buttons */}
+        {/* GrapesJS icon strip — painted by preset-webpage */}
         <div
           id="gjs-views-buttons"
           className="shrink-0 flex flex-row border-b border-slate-200 bg-slate-50"
           style={{ minHeight: 40 }}
         />
 
-        {/* Pages list */}
-        <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '35%', overflowY: 'auto' }}>
-          <PagesSidebarPanel />
-        </div>
-
-        {/* CMS content types */}
-        <div className="shrink-0 border-b border-slate-200" style={{ maxHeight: '40%', overflowY: 'auto' }}>
-          <CmsPanel />
-        </div>
-
-        {/* GrapesJS active manager content (style / layers / traits / blocks) */}
+        {/* GrapesJS manager content — gets all remaining space, scrolls inside */}
         <div
           id="gjs-views-container"
-          className="flex-1 overflow-y-auto min-h-0"
+          className="flex-1 min-h-0"
+          style={{ overflowY: 'auto', overflowX: 'hidden' }}
         />
+
+        {/* ── Pages — collapsible drawer at bottom ── */}
+        <div className="shrink-0 border-t border-slate-200">
+          <button
+            onClick={() => setPagesOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 bg-slate-50"
+          >
+            <span>PAGES</span>
+            {pagesOpen
+              ? <ChevronDown className="w-3 h-3 text-slate-400" />
+              : <ChevronRight className="w-3 h-3 text-slate-400" />}
+          </button>
+          {pagesOpen && (
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              <PagesSidebarPanel />
+            </div>
+          )}
+        </div>
+
+        {/* ── CMS — collapsible drawer at bottom ── */}
+        <div className="shrink-0 border-t border-slate-200">
+          <button
+            onClick={() => setCmsOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 bg-slate-50"
+          >
+            <span>CMS</span>
+            {cmsOpen
+              ? <ChevronDown className="w-3 h-3 text-slate-400" />
+              : <ChevronRight className="w-3 h-3 text-slate-400" />}
+          </button>
+          {cmsOpen && (
+            <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+              <CmsPanel />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Left resize handle */}
