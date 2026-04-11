@@ -111,15 +111,8 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
           storageManager: false,
           undoManager: { trackChanges: true },
 
-          // ── Route every manager into our left-sidebar DOM elements ──────
-          // appendTo tells GrapesJS where to mount each manager's UI.
-          // We do NOT set panels: { defaults: [] } — that breaks preset-webpage
-          // (it needs to add buttons to the 'views' panel). Instead we hide the
-          // GrapesJS right-side panel chrome via CSS so only our sidebar shows.
-          blockManager:  { appendTo: '#left-panel-blocks' },
-          styleManager:  { appendTo: '#left-panel-styles' },
-          layerManager:  { appendTo: '#left-panel-layers' },
-          traitManager:  { appendTo: '#left-panel-traits' },
+          // Manager config — no appendTo here; we move them manually on 'load'
+          // (appendTo is config-time and unreliable with async React rendering)
 
           deviceManager: {
             devices: [
@@ -145,6 +138,29 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
         const styles = initialData.styles as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
         if (comps?.length  > 0) editor.setComponents(comps);
         if (styles?.length > 0) editor.setStyle(styles);
+
+        // ── Move manager UIs into our left sidebar ────────────────────────
+        // Done on 'load' so all managers are fully rendered before we move them.
+        // This is more reliable than appendTo (config-time DOM query).
+        editor.on('load', () => {
+          const move = (getEl: () => Element | null | undefined, targetId: string) => {
+            const target = document.getElementById(targetId);
+            if (!target) return;
+            const el = getEl();
+            if (el && el.parentElement !== target) {
+              target.innerHTML = '';
+              target.appendChild(el);
+            }
+          };
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          move(() => (editor.BlockManager as any).render?.(), 'left-panel-blocks');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          move(() => (editor.StyleManager as any).render?.(), 'left-panel-styles');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          move(() => (editor.LayerManager as any).render?.(), 'left-panel-layers');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          move(() => (editor.TraitManager as any).render?.(), 'left-panel-traits');
+        });
 
         const onEditorChange = () => {
           if (debounceRef.current) clearTimeout(debounceRef.current);
