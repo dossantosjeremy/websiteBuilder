@@ -111,8 +111,13 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
           storageManager: false,
           undoManager: { trackChanges: true },
 
-          // Manager config — no appendTo here; we move them manually on 'load'
-          // (appendTo is config-time and unreliable with async React rendering)
+          // Route each manager's UI into our left sidebar divs.
+          // appendTo uses document.querySelector() at init time.
+          // useEffect always runs after React has rendered, so these divs exist.
+          blockManager: { appendTo: '#left-panel-blocks' },
+          styleManager: { appendTo: '#left-panel-styles' },
+          layerManager: { appendTo: '#left-panel-layers' },
+          traitManager: { appendTo: '#left-panel-traits' },
 
           deviceManager: {
             devices: [
@@ -139,29 +144,6 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
         if (comps?.length  > 0) editor.setComponents(comps);
         if (styles?.length > 0) editor.setStyle(styles);
 
-        // ── Move manager UIs into our left sidebar ────────────────────────
-        // Done on 'load' so all managers are fully rendered before we move them.
-        // This is more reliable than appendTo (config-time DOM query).
-        editor.on('load', () => {
-          const move = (getEl: () => Element | null | undefined, targetId: string) => {
-            const target = document.getElementById(targetId);
-            if (!target) return;
-            const el = getEl();
-            if (el && el.parentElement !== target) {
-              target.innerHTML = '';
-              target.appendChild(el);
-            }
-          };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          move(() => (editor.BlockManager as any).render?.(), 'left-panel-blocks');
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          move(() => (editor.StyleManager as any).render?.(), 'left-panel-styles');
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          move(() => (editor.LayerManager as any).render?.(), 'left-panel-layers');
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          move(() => (editor.TraitManager as any).render?.(), 'left-panel-traits');
-        });
-
         const onEditorChange = () => {
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {
@@ -183,6 +165,9 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
         editor.on('component:input',       onEditorChange);
         editor.on('style:change',          onEditorChange);
         editor.on('canvas:drop',           onEditorChange);
+
+        // Open the blocks panel by default so the sidebar has visible content
+        editor.runCommand('open-blocks');
 
         editorInstanceRef.current = editor;
         setEditor(editor);
@@ -308,39 +293,36 @@ export default function GrapesEditor({ leftPanelWidth = 280, onLeftResize }: Pro
         <div className="flex flex-col flex-1 min-h-0">
           <SectionHeader label="EDITOR" open={editorOpen} onToggle={() => setEditorOpen(v => !v)} />
 
-          {editorOpen && (
-            <div className="flex flex-col flex-1 min-h-0">
+          {/* Tab strip — only shown when open */}
+          <div className="shrink-0 flex border-b border-slate-200 bg-slate-50"
+            style={{ display: editorOpen ? 'flex' : 'none' }}>
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-semibold transition-colors
+                  ${activeTab === tab.id
+                    ? 'text-teal-600 border-b-2 border-teal-500 bg-white'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-              {/* Tab strip */}
-              <div className="shrink-0 flex border-b border-slate-200 bg-slate-50">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-semibold transition-colors
-                      ${activeTab === tab.id
-                        ? 'text-teal-600 border-b-2 border-teal-500 bg-white'
-                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                      }`}
-                  >
-                    {tab.icon}
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Panel content area — scrollable, fills remaining height.
-                  ALL four divs are always in the DOM so GrapesJS can mount
-                  into them. We show/hide via display so GrapesJS internal
-                  state is never disrupted.                                */}
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden gjs-left-panel-content">
-                <div id="left-panel-blocks" style={{ display: activeTab === 'blocks' ? 'block' : 'none' }} />
-                <div id="left-panel-styles" style={{ display: activeTab === 'styles' ? 'block' : 'none' }} />
-                <div id="left-panel-layers" style={{ display: activeTab === 'layers' ? 'block' : 'none' }} />
-                <div id="left-panel-traits" style={{ display: activeTab === 'traits' ? 'block' : 'none' }} />
-              </div>
-            </div>
-          )}
+          {/* Panel content — ALWAYS in DOM so GrapesJS appendTo targets survive
+              section collapse. Visibility controlled by display on the wrapper. */}
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden gjs-left-panel-content"
+            style={{ display: editorOpen ? 'block' : 'none' }}
+          >
+            <div id="left-panel-blocks" style={{ display: activeTab === 'blocks' ? 'block' : 'none' }} />
+            <div id="left-panel-styles" style={{ display: activeTab === 'styles' ? 'block' : 'none' }} />
+            <div id="left-panel-layers" style={{ display: activeTab === 'layers' ? 'block' : 'none' }} />
+            <div id="left-panel-traits" style={{ display: activeTab === 'traits' ? 'block' : 'none' }} />
+          </div>
         </div>
       </div>
 
