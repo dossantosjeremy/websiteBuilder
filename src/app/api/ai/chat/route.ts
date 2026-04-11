@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { aiChatLimiter } from '@/lib/rate-limit';
 import { db } from '@/lib/db';
-import { projects, projectVersions, aiChatHistory } from '@/lib/db/schema';
+import { projects, projectVersions, aiChatHistory, appSettings } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getLocalUser } from '@/lib/auth';
 import { trimToTokenLimit } from '@/lib/token-utils';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
-
-const anthropicProvider = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY ?? '',
-  baseURL: 'https://api.anthropic.com/v1',
-});
 
 const attachmentSchema = z.object({
   name: z.string(),
@@ -68,6 +64,31 @@ export async function POST(request: NextRequest) {
     }
 
     const dbUser = await getLocalUser();
+
+    // ── Load user's AI settings from DB (key entered via Settings UI) ──
+    const [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.userId, dbUser.id));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const settings = (settingsRow?.data ?? {}) as Record<string, any>;
+    const aiProvider: string = settings.aiProvider ?? 'anthropic';
+    const aiApiKey: string = settings.aiApiKey ?? process.env.ANTHROPIC_API_KEY ?? '';
+
+    if (!aiApiKey) {
+      return NextResponse.json(
+        { error: 'No AI API key configured. Add your key in Settings (gear icon).' },
+        { status: 400 }
+      );
+    }
+
+    // Build the model based on provider choice
+    let model;
+    if (aiProvider === 'openai') {
+      const openai = createOpenAI({ apiKey: aiApiKey });
+      model = openai('gpt-4o');
+    } else {
+      const anthropic = createAnthropic({ apiKey: aiApiKey });
+      model = anthropic('claude-sonnet-4.6');
+    }
+
     const [project] = await db
       .select()
       .from(projects)
@@ -179,7 +200,7 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
     ];
 
     const result = streamText({
-      model: anthropicProvider('claude-sonnet-4-5'),
+      model,
       system: systemPrompt,
       messages,
     });
