@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       model = openai('gpt-4o');
     } else {
       const anthropic = createAnthropic({ apiKey: aiApiKey });
-      model = anthropic('claude-sonnet-4-5');
+      model = anthropic('claude-sonnet-4-6');
     }
 
     const [project] = await db
@@ -215,7 +215,7 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
       { role: 'user', content: userContent },
     ];
 
-    console.log('[AI] provider:', aiProvider, '| model: claude-3-5-sonnet-20241022 | key prefix:', aiApiKey.slice(0, 10));
+    console.log('[AI] provider:', aiProvider, '| model: claude-sonnet-4-6 | key prefix:', aiApiKey.slice(0, 10));
 
     const result = streamText({
       model,
