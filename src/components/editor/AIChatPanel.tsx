@@ -170,9 +170,9 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
           if (!dataStr) continue;
 
           // Parse JSON separately so intentional throws aren't swallowed
-          let parsed: Record<string, unknown> | null = null;
+          let parsed: Record<string, unknown>;
           try {
-            parsed = JSON.parse(dataStr);
+            parsed = JSON.parse(dataStr) as Record<string, unknown>;
           } catch {
             console.warn('Failed to parse SSE line:', dataStr);
             continue;
