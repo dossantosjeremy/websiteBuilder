@@ -33,7 +33,7 @@ export async function GET() {
   }
 }
 
-export async function PUT(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     await ensureTable();
     const user = await getLocalUser();
@@ -44,7 +44,7 @@ export async function PUT(req: NextRequest) {
       .onConflictDoUpdate({ target: appSettings.userId, set: { data, updatedAt: sql`NOW()` } });
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error('PUT /api/settings error:', e);
+    console.error('POST /api/settings error:', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
