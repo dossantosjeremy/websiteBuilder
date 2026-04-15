@@ -158,11 +158,17 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        // Flush remaining bytes when stream closes
+        if (done) {
+          buffer += decoder.decode();
+        } else {
+          buffer += decoder.decode(value, { stream: true });
+        }
+
         const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
+        // Keep last incomplete line in buffer (unless stream is done — then process everything)
+        buffer = done ? '' : (lines.pop() ?? '');
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
@@ -186,34 +192,64 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
             throw new Error(parsed.error as string);
           }
         }
+
+        if (done) break;
       }
 
-      // If done event was missed, try to parse accumulated text
-      if (!finalResult && accumulated) {
+      // Always try to parse the accumulated AI text directly.
+      // This handles: (1) done event missed, (2) server fell back to type:'message'
+      // with raw JSON as explanation, (3) client-side done event parse failure.
+      if (accumulated) {
         try {
           const clean = accumulated.trim()
             .replace(/^```(?:json)?\s*/i, '')
             .replace(/\s*```\s*$/, '')
             .trim();
-          finalResult = JSON.parse(clean);
+          const parsedAccumulated = JSON.parse(clean);
+          // Prefer accumulated result if it has edit data that finalResult lacks
+          if (!finalResult || (parsedAccumulated.type === 'edit' && finalResult.type !== 'edit')) {
+            finalResult = parsedAccumulated;
+          }
         } catch {
-          const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            try { finalResult = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
+          if (!finalResult) {
+            // Try to extract any JSON object from accumulated text
+            const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              try { finalResult = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
+            }
           }
         }
       }
+
+      // If explanation looks like raw JSON (server fallback edge case), re-parse it
+      if (finalResult && typeof finalResult.explanation === 'string') {
+        const expTrimmed = (finalResult.explanation as string).trim();
+        if (expTrimmed.startsWith('{')) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const reparsed = JSON.parse(expTrimmed) as any;
+            if (reparsed.type && reparsed.componentsDiff !== undefined) {
+              finalResult = reparsed;
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      console.log('[AI] finalResult type:', finalResult?.type, '| has componentsDiff:', !!finalResult?.componentsDiff, '| explanation preview:', String(finalResult?.explanation ?? '').slice(0, 80));
 
       let applied = false;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let componentsDiff: any = null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let stylesDiff: any = null;
-      // Use || not ?? so empty strings fall through to the raw accumulated text
+      // Build explanation — avoid showing raw JSON as the chat message
+      const rawExplanation: string = finalResult?.explanation ?? '';
+      const isRawJson = rawExplanation.trim().startsWith('{') || rawExplanation.trim().startsWith('[');
       const explanation: string =
-        finalResult?.explanation ||
+        (rawExplanation && !isRawJson ? rawExplanation : '') ||
+        (finalResult?.componentsDiff ? 'Changes applied to canvas.' : '') ||
         (finalResult?.type === 'edit' ? 'Changes applied to canvas.' : '') ||
-        accumulated ||
+        (!rawExplanation ? accumulated : '') ||
         'Done.';
       const type: 'edit' | 'message' = finalResult?.type ?? 'message';
 
@@ -221,7 +257,12 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
         componentsDiff = finalResult.componentsDiff ?? null;
         stylesDiff = finalResult.stylesDiff ?? null;
 
-        if (type === 'edit' && editor) {
+        console.log('[AI] apply check — type:', type, '| editor:', !!editor, '| componentsDiff:', Array.isArray(componentsDiff) ? `array(${componentsDiff.length})` : typeof componentsDiff);
+
+        // Apply whenever componentsDiff exists — don't gate on type:'edit' alone
+        // because server fallback might mis-classify as 'message'
+        const hasChanges = componentsDiff || stylesDiff;
+        if (hasChanges && editor) {
           try {
             if (mode === 'component' && componentsDiff) {
               // Component mode: only replace the selected component, not the whole page
@@ -234,15 +275,21 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
               }
             } else {
               // Page mode: replace the whole page
-              if (componentsDiff) editor.setComponents(componentsDiff);
+              if (componentsDiff) {
+                console.log('[AI] calling editor.setComponents');
+                editor.setComponents(componentsDiff);
+              }
               if (stylesDiff) editor.setStyle(stylesDiff);
             }
             applied = true;
             toast.success('Changes applied to canvas');
           } catch (applyErr) {
-            console.error('Failed to apply AI changes:', applyErr);
+            console.error('[AI] Failed to apply AI changes:', applyErr);
             toast.error('Failed to apply changes to canvas');
           }
+        } else if (hasChanges && !editor) {
+          console.warn('[AI] editor is null — cannot apply changes. componentsDiff exists but editor not ready.');
+          toast.error('Editor not ready — please try again');
         }
       }
 
