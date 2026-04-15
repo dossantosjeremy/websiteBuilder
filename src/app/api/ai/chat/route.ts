@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       model = openai('gpt-4o');
     } else {
       const anthropic = createAnthropic({ apiKey: aiApiKey });
-      model = anthropic('claude-sonnet-4.5');
+      model = anthropic('claude-3-5-sonnet-20241022');
     }
 
     const [project] = await db
