@@ -32,6 +32,12 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
 
+  // Ref so async sendMessage always uses the latest editor instance,
+  // even if the closure captured a stale value (common in production builds).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<any>(null);
+  useEffect(() => { editorRef.current = editor; }, [editor]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -257,29 +263,31 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
         componentsDiff = finalResult.componentsDiff ?? null;
         stylesDiff = finalResult.stylesDiff ?? null;
 
-        console.log('[AI] apply check — type:', type, '| editor:', !!editor, '| componentsDiff:', Array.isArray(componentsDiff) ? `array(${componentsDiff.length})` : typeof componentsDiff);
+        // Use editorRef.current — ref always has the latest value, bypassing closure staleness
+        const liveEditor = editorRef.current;
+        console.log('[AI] apply check — type:', type, '| editor (ref):', !!liveEditor, '| componentsDiff:', Array.isArray(componentsDiff) ? `array(${componentsDiff.length})` : typeof componentsDiff);
 
         // Apply whenever componentsDiff exists — don't gate on type:'edit' alone
         // because server fallback might mis-classify as 'message'
         const hasChanges = componentsDiff || stylesDiff;
-        if (hasChanges && editor) {
+        if (hasChanges && liveEditor) {
           try {
             if (mode === 'component' && componentsDiff) {
               // Component mode: only replace the selected component, not the whole page
-              const selected = editor.getSelected();
+              const selected = liveEditor.getSelected();
               if (selected) {
                 const patch = Array.isArray(componentsDiff) ? componentsDiff[0] : componentsDiff;
                 selected.replaceWith(patch);
               } else {
-                editor.setComponents(componentsDiff);
+                liveEditor.setComponents(componentsDiff);
               }
             } else {
               // Page mode: replace the whole page
               if (componentsDiff) {
                 console.log('[AI] calling editor.setComponents');
-                editor.setComponents(componentsDiff);
+                liveEditor.setComponents(componentsDiff);
               }
-              if (stylesDiff) editor.setStyle(stylesDiff);
+              if (stylesDiff) liveEditor.setStyle(stylesDiff);
             }
             applied = true;
             toast.success('Changes applied to canvas');
@@ -287,8 +295,8 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
             console.error('[AI] Failed to apply AI changes:', applyErr);
             toast.error('Failed to apply changes to canvas');
           }
-        } else if (hasChanges && !editor) {
-          console.warn('[AI] editor is null — cannot apply changes. componentsDiff exists but editor not ready.');
+        } else if (hasChanges && !liveEditor) {
+          console.warn('[AI] editor ref is null — cannot apply changes');
           toast.error('Editor not ready — please try again');
         }
       }
@@ -317,7 +325,8 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
     } finally {
       setIsStreaming(false);
     }
-  }, [inputValue, attachments, isStreaming, messages, project.id, currentPageIndex, selectedComponentJson, mode, editor]);
+  // editor removed from deps — we use editorRef.current inside the async fn to always get latest
+  }, [inputValue, attachments, isStreaming, messages, project.id, currentPageIndex, selectedComponentJson, mode]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
