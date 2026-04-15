@@ -232,11 +232,17 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
 
         try {
           let chunkCount = 0;
-          for await (const chunk of result.textStream) {
-            chunkCount++;
-            fullText += chunk;
-            const data = JSON.stringify({ chunk });
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          // Use fullStream instead of textStream so error events are surfaced
+          // rather than silently discarded (which caused empty responses / "Done.")
+          for await (const event of result.fullStream) {
+            if (event.type === 'text-delta') {
+              chunkCount++;
+              fullText += event.textDelta;
+              const data = JSON.stringify({ chunk: event.textDelta });
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            } else if (event.type === 'error') {
+              throw event.error;
+            }
           }
           console.log('[AI] stream done, chunks:', chunkCount, '| text length:', fullText.length);
 
