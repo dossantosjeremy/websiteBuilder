@@ -274,24 +274,19 @@ a { color: inherit; text-decoration: none; }
 .gjs-left-panel-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
 
 /* ── Hide GrapesJS's built-in right-side panel chrome ───────────────────
-   GrapesJS / preset-webpage renders .gjs-pn-views (icon strip) and
-   .gjs-pn-views-container (manager content) inside #gjs on the right.
-   We move the manager UIs into our left sidebar manually on 'load', so
-   we must collapse these panels to zero — display:none alone is not
-   enough because GrapesJS may set an inline width that still takes space. */
-/* Target every possible class combo GrapesJS might use */
+   GrapesJS canvas width = calc(100% - var(--gjs-left-width)).
+   The views panel uses var(--gjs-left-width) for its width on the right.
+   Setting the CSS var to 0 makes the canvas take 100% and collapses the
+   views panel — cleaner than fighting individual panel widths.          */
+#gjs {
+  --gjs-left-width: 0px !important;
+}
 .gjs-pn-views,
 .gjs-pn-views-container,
 .gjs-pn-panel.gjs-pn-views,
 .gjs-pn-panel.gjs-pn-views-container {
   display: none !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  flex: 0 0 0 !important;
   overflow: hidden !important;
-  padding: 0 !important;
-  border: none !important;
 }
 
 /* gjs-editor-guts: let it grow to fill available height */
