@@ -248,57 +248,55 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
       let componentsDiff: any = null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let stylesDiff: any = null;
-      // Build explanation — avoid showing raw JSON as the chat message
-      const rawExplanation: string = finalResult?.explanation ?? '';
-      const isRawJson = rawExplanation.trim().startsWith('{') || rawExplanation.trim().startsWith('[');
-      const explanation: string =
-        (rawExplanation && !isRawJson ? rawExplanation : '') ||
-        (finalResult?.componentsDiff ? 'Changes applied to canvas.' : '') ||
-        (finalResult?.type === 'edit' ? 'Changes applied to canvas.' : '') ||
-        (!rawExplanation ? accumulated : '') ||
-        'Done.';
+      // ── Extract fields ───────────────────────────────────────────────────
+      componentsDiff = finalResult?.componentsDiff ?? null;
+      stylesDiff = finalResult?.stylesDiff ?? null;
       const type: 'edit' | 'message' = finalResult?.type ?? 'message';
 
-      if (finalResult) {
-        componentsDiff = finalResult.componentsDiff ?? null;
-        stylesDiff = finalResult.stylesDiff ?? null;
+      // Build explanation — NEVER show raw JSON in chat
+      const rawExp: string = finalResult?.explanation ?? '';
+      const looksLikeJson = (s: string) => { const t = s.trim(); return t.startsWith('{') || t.startsWith('['); };
+      const explanation: string =
+        (rawExp && !looksLikeJson(rawExp) ? rawExp : '') ||
+        (componentsDiff ? 'Changes applied to canvas.' : '') ||
+        (!looksLikeJson(accumulated) ? accumulated : '') ||
+        'Done.';
 
-        // Use editorRef.current — ref always has the latest value, bypassing closure staleness
-        const liveEditor = editorRef.current;
-        console.log('[AI] apply check — type:', type, '| editor (ref):', !!liveEditor, '| componentsDiff:', Array.isArray(componentsDiff) ? `array(${componentsDiff.length})` : typeof componentsDiff);
+      // ── Apply to canvas ──────────────────────────────────────────────────
+      // Use editorRef.current — always reflects the latest GrapesJS instance,
+      // bypassing stale closure values captured by useCallback.
+      const liveEditor = editorRef.current;
+      console.log('[AI] apply check | type:', type, '| editor:', !!liveEditor, '| componentsDiff:', Array.isArray(componentsDiff) ? componentsDiff.length + ' items' : typeof componentsDiff);
 
-        // Apply whenever componentsDiff exists — don't gate on type:'edit' alone
-        // because server fallback might mis-classify as 'message'
-        const hasChanges = componentsDiff || stylesDiff;
-        if (hasChanges && liveEditor) {
-          try {
-            if (mode === 'component' && componentsDiff) {
-              // Component mode: only replace the selected component, not the whole page
-              const selected = liveEditor.getSelected();
-              if (selected) {
-                const patch = Array.isArray(componentsDiff) ? componentsDiff[0] : componentsDiff;
-                selected.replaceWith(patch);
-              } else {
-                liveEditor.setComponents(componentsDiff);
-              }
+      const hasChanges = !!(componentsDiff || stylesDiff);
+      if (hasChanges && liveEditor) {
+        try {
+          if (mode === 'component' && componentsDiff) {
+            // Component mode: replace only the selected component
+            const selected = liveEditor.getSelected();
+            if (selected) {
+              const patch = Array.isArray(componentsDiff) ? componentsDiff[0] : componentsDiff;
+              selected.replaceWith(patch);
             } else {
-              // Page mode: replace the whole page
-              if (componentsDiff) {
-                console.log('[AI] calling editor.setComponents');
-                liveEditor.setComponents(componentsDiff);
-              }
-              if (stylesDiff) liveEditor.setStyle(stylesDiff);
+              liveEditor.setComponents(componentsDiff);
             }
-            applied = true;
-            toast.success('Changes applied to canvas');
-          } catch (applyErr) {
-            console.error('[AI] Failed to apply AI changes:', applyErr);
-            toast.error('Failed to apply changes to canvas');
+          } else {
+            // Page mode: replace the whole page
+            if (componentsDiff) {
+              console.log('[AI] calling setComponents with', Array.isArray(componentsDiff) ? componentsDiff.length : 1, 'top-level items');
+              liveEditor.setComponents(componentsDiff);
+            }
+            if (stylesDiff) liveEditor.setStyle(stylesDiff);
           }
-        } else if (hasChanges && !liveEditor) {
-          console.warn('[AI] editor ref is null — cannot apply changes');
-          toast.error('Editor not ready — please try again');
+          applied = true;
+          toast.success('Changes applied to canvas');
+        } catch (applyErr) {
+          console.error('[AI] apply error:', applyErr);
+          toast.error('Failed to apply changes to canvas');
         }
+      } else if (hasChanges && !liveEditor) {
+        console.warn('[AI] liveEditor is null at apply time');
+        toast.error('Editor not ready — please try again');
       }
 
       setMessages((prev) => [...prev, {
