@@ -32,15 +32,19 @@ export default function SettingsModal({ open, onClose }: Props) {
   const save = async () => {
     setSaving(true);
     try {
-      await fetch('/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Server error ${res.status}`);
+      }
       toast.success('Settings saved');
       onClose();
-    } catch {
-      toast.error('Failed to save settings');
+    } catch (err) {
+      toast.error(`Failed to save: ${err instanceof Error ? err.message : 'unknown error'}`);
     } finally {
       setSaving(false);
     }

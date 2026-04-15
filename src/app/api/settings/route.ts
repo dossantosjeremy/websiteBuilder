@@ -44,6 +44,7 @@ export async function PUT(req: NextRequest) {
       .onConflictDoUpdate({ target: appSettings.userId, set: { data, updatedAt: sql`NOW()` } });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    console.error('PUT /api/settings error:', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

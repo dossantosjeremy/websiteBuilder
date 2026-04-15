@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { aiChatLimiter } from '@/lib/rate-limit';
 import { db } from '@/lib/db';
 import { projects, projectVersions, aiChatHistory, appSettings } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { getLocalUser } from '@/lib/auth';
 import { trimToTokenLimit } from '@/lib/token-utils';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -66,15 +66,31 @@ export async function POST(request: NextRequest) {
     const dbUser = await getLocalUser();
 
     // ── Load user's AI settings from DB (key entered via Settings UI) ──
-    const [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.userId, dbUser.id));
+    // Wrap in try/catch — table may not exist yet on first deploy
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const settings = (settingsRow?.data ?? {}) as Record<string, any>;
+    let settings: Record<string, any> = {};
+    try {
+      // Ensure the table exists before querying it
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          id         SERIAL PRIMARY KEY,
+          user_id    INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          data       JSONB NOT NULL DEFAULT '{}',
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      const [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.userId, dbUser.id));
+      settings = (settingsRow?.data ?? {}) as Record<string, any>;
+    } catch (e) {
+      console.warn('Could not load settings from DB, using env var fallback:', e);
+    }
+
     const aiProvider: string = settings.aiProvider ?? 'anthropic';
     const aiApiKey: string = settings.aiApiKey ?? process.env.ANTHROPIC_API_KEY ?? '';
 
     if (!aiApiKey) {
       return NextResponse.json(
-        { error: 'No AI API key configured. Add your key in Settings (gear icon).' },
+        { error: 'No AI API key configured. Add your key in Settings (gear icon at top right).' },
         { status: 400 }
       );
     }
@@ -86,7 +102,7 @@ export async function POST(request: NextRequest) {
       model = openai('gpt-4o');
     } else {
       const anthropic = createAnthropic({ apiKey: aiApiKey });
-      model = anthropic('claude-sonnet-4.6');
+      model = anthropic('claude-sonnet-4.5');
     }
 
     const [project] = await db
