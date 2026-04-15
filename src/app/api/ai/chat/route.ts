@@ -325,7 +325,8 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
       },
     });
   } catch (error) {
-    console.error('POST /api/ai/chat error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('POST /api/ai/chat error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
