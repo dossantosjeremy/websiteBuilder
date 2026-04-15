@@ -308,7 +308,8 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
           }
         } catch (streamErr) {
           console.error('Stream error:', streamErr);
-          const errData = JSON.stringify({ error: 'Stream failed' });
+          const errMsg = streamErr instanceof Error ? streamErr.message : String(streamErr);
+          const errData = JSON.stringify({ error: errMsg });
           controller.enqueue(encoder.encode(`data: ${errData}\n\n`));
         } finally {
           controller.close();

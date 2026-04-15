@@ -169,17 +169,21 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
           const dataStr = line.slice(6).trim();
           if (!dataStr) continue;
 
+          // Parse JSON separately so intentional throws aren't swallowed
+          let parsed: Record<string, unknown> | null = null;
           try {
-            const parsed = JSON.parse(dataStr);
-            if (parsed.chunk !== undefined) {
-              accumulated += parsed.chunk;
-            } else if (parsed.done && parsed.result) {
-              finalResult = parsed.result;
-            } else if (parsed.error) {
-              throw new Error(parsed.error);
-            }
-          } catch (parseErr) {
-            console.warn('Failed to parse SSE line:', dataStr, parseErr);
+            parsed = JSON.parse(dataStr);
+          } catch {
+            console.warn('Failed to parse SSE line:', dataStr);
+            continue;
+          }
+          if (parsed.chunk !== undefined) {
+            accumulated += parsed.chunk as string;
+          } else if (parsed.done && parsed.result) {
+            finalResult = parsed.result;
+          } else if (parsed.error) {
+            // Throw outside the JSON-parse try so it isn't silently caught
+            throw new Error(parsed.error as string);
           }
         }
       }
