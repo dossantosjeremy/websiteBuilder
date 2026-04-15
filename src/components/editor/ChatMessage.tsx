@@ -45,7 +45,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           </div>
         )}
 
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words">{message.content || '(no response text)'}</p>
 
         {!isUser && message.type === 'edit' && message.applied && (
           <div className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-green-400 bg-green-400/10 rounded px-2 py-0.5">

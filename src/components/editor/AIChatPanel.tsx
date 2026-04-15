@@ -205,7 +205,12 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
       let componentsDiff: any = null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let stylesDiff: any = null;
-      const explanation = finalResult?.explanation ?? accumulated;
+      // Use || not ?? so empty strings fall through to the raw accumulated text
+      const explanation: string =
+        finalResult?.explanation ||
+        (finalResult?.type === 'edit' ? 'Changes applied to canvas.' : '') ||
+        accumulated ||
+        'Done.';
       const type: 'edit' | 'message' = finalResult?.type ?? 'message';
 
       if (finalResult) {
