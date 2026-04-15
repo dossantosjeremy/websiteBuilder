@@ -215,6 +215,8 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
       { role: 'user', content: userContent },
     ];
 
+    console.log('[AI] provider:', aiProvider, '| model: claude-3-5-sonnet-20241022 | key prefix:', aiApiKey.slice(0, 10));
+
     const result = streamText({
       model,
       system: systemPrompt,
@@ -229,11 +231,14 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
         const encoder = new TextEncoder();
 
         try {
+          let chunkCount = 0;
           for await (const chunk of result.textStream) {
+            chunkCount++;
             fullText += chunk;
             const data = JSON.stringify({ chunk });
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
           }
+          console.log('[AI] stream done, chunks:', chunkCount, '| text length:', fullText.length);
 
           // Parse the final response — strip markdown code fences if Claude added them
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
