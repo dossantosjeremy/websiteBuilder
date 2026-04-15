@@ -237,8 +237,8 @@ Styling: use attributes.style with inline CSS. Use hex colors, px/rem units.
           for await (const event of result.fullStream) {
             if (event.type === 'text-delta') {
               chunkCount++;
-              fullText += event.textDelta;
-              const data = JSON.stringify({ chunk: event.textDelta });
+              fullText += event.text;
+              const data = JSON.stringify({ chunk: event.text });
               controller.enqueue(encoder.encode(`data: ${data}\n\n`));
             } else if (event.type === 'error') {
               throw event.error;
