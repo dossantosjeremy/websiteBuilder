@@ -294,14 +294,12 @@ a { color: inherit; text-decoration: none; }
   border: none !important;
 }
 
-/* Also ensure the gjs-editor-guts flex row gives all space to the canvas */
+/* gjs-editor-guts: let it grow to fill available height */
 .gjs-editor-guts {
   flex: 1 1 auto !important;
+  overflow: hidden !important;
 }
-.gjs-cv-canvas {
-  flex: 1 1 auto !important;
-  width: auto !important;
-}
+/* .gjs-cv-canvas uses position:absolute internally — do NOT override width or flex */
 
 /* ── Color picker ── */
 .gjs-field-color-picker { border-color: var(--gjs-border) !important; }
