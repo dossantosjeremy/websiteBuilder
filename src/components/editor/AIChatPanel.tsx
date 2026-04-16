@@ -202,46 +202,47 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
         if (done) break;
       }
 
-      // Always try to parse the accumulated AI text directly.
-      // This handles: (1) done event missed, (2) server fell back to type:'message'
-      // with raw JSON as explanation, (3) client-side done event parse failure.
+      // ── Parse the accumulated stream text (most reliable source of truth) ──
+      // The done event goes through double JSON serialisation (server → SSE → client)
+      // and can lose componentsDiff when the server's parse fails. Parsing `accumulated`
+      // directly is simpler and more reliable — always do it and prefer the result
+      // when it carries componentsDiff.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let accParsed: any = null;
       if (accumulated) {
-        try {
-          const clean = accumulated.trim()
-            .replace(/^```(?:json)?\s*/i, '')
-            .replace(/\s*```\s*$/, '')
-            .trim();
-          const parsedAccumulated = JSON.parse(clean);
-          // Prefer accumulated result if it has edit data that finalResult lacks
-          if (!finalResult || (parsedAccumulated.type === 'edit' && finalResult.type !== 'edit')) {
-            finalResult = parsedAccumulated;
-          }
-        } catch {
-          if (!finalResult) {
-            // Try to extract any JSON object from accumulated text
-            const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              try { finalResult = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
-            }
-          }
+        const clean = accumulated.trim()
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```\s*$/, '')
+          .trim();
+        // Full parse
+        try { accParsed = JSON.parse(clean); } catch { /* try regex below */ }
+        // Regex fallback — extract outermost JSON object even if there's surrounding text
+        if (!accParsed) {
+          const m = clean.match(/\{[\s\S]*\}/);
+          if (m) try { accParsed = JSON.parse(m[0]); } catch { /* give up */ }
         }
       }
 
-      // If explanation looks like raw JSON (server fallback edge case), re-parse it
+      // Use accParsed when it has componentsDiff (always more reliable than done event)
+      if (accParsed?.componentsDiff) {
+        finalResult = accParsed;
+      } else if (!finalResult && accParsed) {
+        finalResult = accParsed;
+      }
+
+      // If explanation field itself looks like raw JSON, try re-parsing it
       if (finalResult && typeof finalResult.explanation === 'string') {
-        const expTrimmed = (finalResult.explanation as string).trim();
-        if (expTrimmed.startsWith('{')) {
+        const expT = (finalResult.explanation as string).trim();
+        if (expT.startsWith('{')) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const reparsed = JSON.parse(expTrimmed) as any;
-            if (reparsed.type && reparsed.componentsDiff !== undefined) {
-              finalResult = reparsed;
-            }
+            const inner = JSON.parse(expT) as any;
+            if (inner?.componentsDiff) finalResult = inner;
           } catch { /* ignore */ }
         }
       }
 
-      console.log('[AI] finalResult type:', finalResult?.type, '| has componentsDiff:', !!finalResult?.componentsDiff, '| explanation preview:', String(finalResult?.explanation ?? '').slice(0, 80));
+      console.log('[AI] finalResult type:', finalResult?.type, '| componentsDiff:', Array.isArray(finalResult?.componentsDiff) ? finalResult.componentsDiff.length + ' items' : String(finalResult?.componentsDiff), '| accumulated length:', accumulated.length, '| accParsed ok:', !!accParsed);
 
       let applied = false;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,12 +255,13 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
       const type: 'edit' | 'message' = finalResult?.type ?? 'message';
 
       // Build explanation — NEVER show raw JSON in chat
-      const rawExp: string = finalResult?.explanation ?? '';
       const looksLikeJson = (s: string) => { const t = s.trim(); return t.startsWith('{') || t.startsWith('['); };
+      const rawExp: string = finalResult?.explanation ?? '';
       const explanation: string =
         (rawExp && !looksLikeJson(rawExp) ? rawExp : '') ||
         (componentsDiff ? 'Changes applied to canvas.' : '') ||
-        (!looksLikeJson(accumulated) ? accumulated : '') ||
+        (!looksLikeJson(accumulated) && accumulated ? accumulated : '') ||
+        (accumulated && !accParsed ? 'Could not parse AI response — try rephrasing.' : '') ||
         'Done.';
 
       // ── Apply to canvas ──────────────────────────────────────────────────
@@ -269,6 +271,12 @@ export default function AIChatPanel({ onCollapse }: AIChatPanelProps) {
       console.log('[AI] apply check | type:', type, '| editor:', !!liveEditor, '| componentsDiff:', Array.isArray(componentsDiff) ? componentsDiff.length + ' items' : typeof componentsDiff);
 
       const hasChanges = !!(componentsDiff || stylesDiff);
+      // Diagnostic toast so failures are visible without DevTools
+      if (!hasChanges) {
+        toast.error(`AI: no components parsed (acc=${accumulated.length}ch, parsed=${!!accParsed})`);
+      } else if (!liveEditor) {
+        toast.error('AI: editor ref is null');
+      }
       if (hasChanges && liveEditor) {
         try {
           if (mode === 'component' && componentsDiff) {
